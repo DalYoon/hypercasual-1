@@ -5,9 +5,9 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 // ============================== 설정 ==============================
 const CFG = {
   camOffset: new THREE.Vector3(10.5, 12.5, 10.5),
-  heroSpeed: 5.2, workerSpeed: 3.4, custSpeed: 2.8,
-  huntInterval: 4.0, cookTime: 3.0, eatTime: 4.5, custSpawn: 5.0,
-  meatMax: 4, stewMax: 4, carryMax: 3,
+  heroSpeed: 6.0, workerSpeed: 3.8, custSpeed: 3.0,
+  huntInterval: 4.0, cookTime: 3.0, eatTime: 4.5, custSpawn: 1.6,
+  queueMax: 8, meatMax: 4, stewMax: 4, carryMax: 3,
   offlineCapMin: 120,
 };
 const PADS = [
@@ -17,6 +17,11 @@ const PADS = [
   { id:'fire2',   label:'모닥불 강화', cost:100,pos:[-1.0,6.5] },
   { id:'worker2', label:'일꾼 고용 2', cost:220,pos:[-5.5,-6.5] },
   { id:'table3',  label:'식탁 확장 2', cost:300,pos:[9.5,-1.0] },
+  { id:'worker3', label:'일꾼 고용 3', cost:380,pos:[-9.5,-8.5] },
+  { id:'hunt3',   label:'사냥터 가속 2', cost:200,pos:[-11.5,4.8] },
+  { id:'bag1',    label:'큰 가방 (5개 운반)', cost:150,pos:[-2.5,-7.5] },
+  { id:'table4',  label:'식탁 확장 3', cost:450,pos:[13.5,6.5] },
+  { id:'table5',  label:'식탁 확장 4', cost:700,pos:[16.5,-0.5] },
 ];
 
 // ============================== 상태 ==============================
@@ -109,23 +114,37 @@ function makeRig(name,x,z,ry=0){
 // ============================== 월드 꾸미기 ==============================
 function buildWorld(){
   // 눈 지형
-  const geo=new THREE.CylinderGeometry(15,15.6,1.2,48);
+  const geo=new THREE.CylinderGeometry(26,26.8,1.2,64);
   const mat=new THREE.MeshStandardMaterial({color:0xe9eefb,roughness:0.95});
   const ground=new THREE.Mesh(geo,mat); ground.position.y=-0.6; ground.receiveShadow=true; scene.add(ground);
   const driftM=new THREE.MeshStandardMaterial({color:0xf2f5fd,roughness:1});
-  [[-8,5,2.2],[6,-6,2.6],[-4,-8,1.8],[9,6,1.9],[3,9,1.5]].forEach(([x,z,s])=>{
+  [[-8,5,2.2],[6,-6,2.6],[-4,-8,1.8],[9,6,1.9],[3,9,1.5],[-14,-12,2.8],[15,-10,2.4],[-16,10,2.6],[12,14,2.2],[19,5,2.0],[-19,-3,2.3],[5,-17,2.5],[-6,17,2.1]].forEach(([x,z,s])=>{
     const d=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),driftM);
     d.scale.set(s,s*0.9,s*0.32); d.position.set(x,-0.15,z); d.receiveShadow=true; scene.add(d);
   });
   // 얼음 패치
   const iceM=new THREE.MeshStandardMaterial({color:0xd3e4f7,roughness:0.35});
-  [[-5,-6,2.6],[6.5,7.5,2.0],[9,-5,1.6],[-9.5,-1,1.8]].forEach(([x,z,r],i)=>{
+  [[-5,-6,2.6],[6.5,7.5,2.0],[9,-5,1.6],[-9.5,-1,1.8],[-15,-8,3.0],[13,11,2.4],[-13,13,2.2],[18,-6,2.0],[3,-14,2.6],[-18,4,2.0]].forEach(([x,z,r],i)=>{
     const ice=new THREE.Mesh(new THREE.CircleGeometry(r,24),iceM);
     ice.rotation.x=-Math.PI/2; ice.position.set(x,0.012,z); ice.receiveShadow=true; scene.add(ice);
   });
   // 가장자리 나무/바위
   const ring=[[-12,-8,'pine1',.55],[-13,-1,'pine2',.6],[-11,6,'pine1',.5],[-6,11,'pine2',.55],[2,12,'pine1',.6],[9,10,'ctree',.55],[12,4,'pine2',.5],[13,-4,'pine1',.55],[8,-11,'pine2',.6],[0,-13,'pine1',.5],[-8,-11,'ctree',.55]];
   ring.forEach(([x,z,t,s],i)=>staticAsset(t,x,z,i*1.7,s));
+  // 외곽 링 (넓어진 맵)
+  const outer=[];
+  const kinds=['pine1','pine2','ctree'];
+  for(let i=0;i<26;i++){
+    const a=i/26*Math.PI*2+0.13;
+    const r=22.5+Math.sin(i*2.7)*1.6;
+    outer.push([Math.cos(a)*r,Math.sin(a)*r,kinds[i%3],0.5+(i%4)*0.08]);
+  }
+  outer.forEach(([x,z,t,s],i)=>staticAsset(t,x,z,i*0.9,s));
+  // 중간 링 장식
+  [[-17,-14,'pine2',.6],[16,12,'pine1',.55],[-18,8,'ctree',.6],[14,-15,'pine2',.55],[-4,-19,'pine1',.6],[7,18,'ctree',.55],[20,-8,'pine2',.5],[-20,-6,'pine1',.55]].forEach(([x,z,t,s],i)=>staticAsset(t,x,z,i*1.3,s));
+  staticAsset('bush',-14,2,0,.9); staticAsset('bush',16,-12,1,.85); staticAsset('rock',-12,-14,0.4,.9); staticAsset('rock',18,9,2.1,.8);
+  staticAsset('stump',-16,-4,0.8,.9); staticAsset('log',12,-13,1.9,.9); staticAsset('bush',-9,15,0,1); staticAsset('rock',6,16,1.2,.7);
+  staticAsset('torch',-6,-6,0,1); staticAsset('torch',8,8,0,1); staticAsset('torch',14,3,0,1); staticAsset('torch',-14,6,0,1);
   staticAsset('pine2',-6.5,7.5,0.8,.45); staticAsset('pine1',7.5,7,2.2,.4); staticAsset('ctree',-8.5,-4.5,1.1,.42); staticAsset('bush',-3,8.8,0,.9); staticAsset('bush',9,-6.5,1,.8); staticAsset('rock',-6,-6.5,2.6,.6); staticAsset('stump',6.5,9.5,0.3,.8);
   staticAsset('rock',-11.5,3.5,0.4,.9); staticAsset('rock',10.5,-8,2.1,.8); staticAsset('rock',4,11.5,1.2,.7);
   staticAsset('stump',-9,8.5,0.8,.9); staticAsset('log',-10,-6,1.9,.9); staticAsset('bush',-7,-9.5,0,1);
@@ -155,7 +174,9 @@ const HUNT={pos:new THREE.Vector3(-8,0,2), stock:[], iv:CFG.huntInterval, t:0};
 const FIRE={pos:new THREE.Vector3(-2,0,2), raw:0, stew:0, cooking:0, ct:CFG.cookTime};
 const TABLES=[ {pos:new THREE.Vector3(5,0,3), built:true, cust:null, stew:0, eating:0},
                {pos:new THREE.Vector3(8,0,1), built:false, cust:null, stew:0, eating:0, padId:'table2'},
-               {pos:new THREE.Vector3(10.5,0,4.5), built:false, cust:null, stew:0, eating:0, padId:'table3'} ];
+               {pos:new THREE.Vector3(10.5,0,4.5), built:false, cust:null, stew:0, eating:0, padId:'table3'},
+               {pos:new THREE.Vector3(12,0,6.5), built:false, cust:null, stew:0, eating:0, padId:'table4'},
+               {pos:new THREE.Vector3(15,0,0.5), built:false, cust:null, stew:0, eating:0, padId:'table5'} ];
 let workers=[], pads=[], hero, campfire, custT=0, stockMeshes=[], stewMeshes=[], coinFx=[];
 
 function buildStations(){
@@ -210,7 +231,12 @@ function unlockPad(g){
   if(p.id==='worker1'||p.id==='worker2') hireWorker();
   if(p.id==='table2') buildTable(TABLES[1]);
   if(p.id==='table3') buildTable(TABLES[2]);
+  if(p.id==='table4') buildTable(TABLES[3]);
+  if(p.id==='table5') buildTable(TABLES[4]);
+  if(p.id==='worker3') hireWorker();
   if(p.id==='hunt2') HUNT.iv=2.2;
+  if(p.id==='hunt3') HUNT.iv=1.2;
+  if(p.id==='bag1') CFG.carryMax=5;
   if(p.id==='fire2'){ FIRE.ct=1.6; campfire.scale.setScalar(1.25); }
   pop(g.position,0xffd34d);
 }
@@ -253,7 +279,7 @@ function updateHero(dt){
     hero.rig.obj.position.x+=vx*CFG.heroSpeed*dt;
     hero.rig.obj.position.z+=vz*CFG.heroSpeed*dt;
     const r=Math.hypot(hero.rig.obj.position.x,hero.rig.obj.position.z);
-    if(r>13.5){ hero.rig.obj.position.x*=13.5/r; hero.rig.obj.position.z*=13.5/r; }
+    if(r>24.5){ hero.rig.obj.position.x*=24.5/r; hero.rig.obj.position.z*=24.5/r; }
     hero.rig.obj.rotation.y=Math.atan2(vx,vz);
     playAnim(hero.rig,'Running_A');
   } else playAnim(hero.rig,'Idle');
@@ -358,23 +384,37 @@ function step(w,dt){
   playAnim(w.rig,'Walking_A');
   return false;
 }
-// 손님
-let customers=[];
+// 손님 (줄서기 경제: 수요는 항상 충분, 서빙 속도가 수익을 결정)
+let customers=[], queue=[];
+const ENTR=new THREE.Vector3(0,0,-24), EXIT=new THREE.Vector3(0,0,-25.5);
+const QA=new THREE.Vector3(2.5,0,-4.5);          // 줄 머리
+const QD=new THREE.Vector3(-0.127,0,-0.992);     // 줄 방향 (입구 쪽)
+function queueSlot(k){ return new THREE.Vector3(QA.x+QD.x*1.7*k, 0, QA.z+QD.z*1.7*k); }
+function spawnCustomer(){
+  const kinds=['Knight','Barbarian','Mage','Rogue'];
+  const rig=makeRig(kinds[Math.floor(Math.random()*kinds.length)], ENTR.x+(Math.random()-0.5)*2, ENTR.z, 0);
+  const c={rig, state:'toQueue', t:0, table:null, pay:0};
+  customers.push(c); queue.push(c);
+}
 function updateCustomers(dt){
   custT+=dt;
+  // 수요는 항상 넘침: 줄이 차지 않았으면 계속 도착
+  if(custT>=CFG.custSpawn && queue.length<CFG.queueMax && customers.length<24){
+    custT=0; spawnCustomer();
+  }
+  // 빈 식탁이 있으면 줄 맨 앞 손님 착석
   const free=TABLES.filter(t=>t.built&&!t.cust);
-  if(custT>=CFG.custSpawn && free.length>0 && customers.length<5){
-    custT=0;
-    const kinds=['Knight','Barbarian','Mage','Rogue'];
-    const rig=makeRig(kinds[Math.floor(Math.random()*kinds.length)], 0, -13, 0);
-    customers.push({rig, state:'enter', t:0, table:null, pay:0});
+  while(free.length>0 && queue.length>0){
+    const c=queue.shift(); const t=free.shift();
+    t.cust=c; c.table=t; c.state='toSeat';
   }
   for(let i=customers.length-1;i>=0;i--){
     const c=customers[i]; const o=c.rig.obj;
-    if(c.state==='enter'){
-      const t=TABLES.find(t=>t.built&&!t.cust);
-      if(!t){ c.state='leave'; continue; }
-      t.cust=c; c.table=t; c.state='toSeat';
+    if(c.state==='toQueue'){
+      const slot=queueSlot(queue.indexOf(c));
+      const d=new THREE.Vector3().subVectors(slot,o.position); d.y=0;
+      if(d.length()<0.35){ playAnim(c.rig,'Idle'); o.rotation.y=Math.atan2(QA.x-o.position.x,QA.z+4-o.position.z); }
+      else { d.normalize(); o.position.addScaledVector(d,CFG.custSpeed*dt); o.rotation.y=Math.atan2(d.x,d.z); playAnim(c.rig,'Walking_A'); }
     }
     if(c.state==='wait'){
       if(!c.bubble){ c.bubble=textSprite('🍲',{size:40,bg:'rgba(255,255,255,.85)'}); c.bubble.position.copy(c.table.pos).add(new THREE.Vector3(-1.4,2.3,-1.0)); scene.add(c.bubble); }
@@ -403,9 +443,8 @@ function updateCustomers(dt){
     else if(c.state==='leave'){
       c.cheerT=(c.cheerT||0)+dt;
       if(c.cheerT<0.9) continue;
-      const out=new THREE.Vector3(0,0,-14);
-      const d=new THREE.Vector3().subVectors(out,o.position); d.y=0;
-      if(d.length()<0.8){ if(c.table) c.table.cust=null; scene.remove(o); customers.splice(i,1); continue; }
+      const d=new THREE.Vector3().subVectors(EXIT,o.position); d.y=0;
+      if(d.length()<0.8){ if(c.table) c.table.cust=null; const qi=queue.indexOf(c); if(qi>=0)queue.splice(qi,1); scene.remove(o); customers.splice(i,1); continue; }
       d.normalize(); o.position.addScaledVector(d,CFG.custSpeed*dt); o.rotation.y=Math.atan2(d.x,d.z); playAnim(c.rig,'Walking_A');
     }
   }
@@ -433,15 +472,15 @@ function offlineSettle(){
   const mins=(Date.now()-(S.ts||Date.now()))/60000;
   if(mins<3) return;
   const tables=TABLES.filter(t=>t.built).length;
-  const gain=Math.floor(Math.min(mins,CFG.offlineCapMin)*tables*2.2);
+  const gain=Math.floor(Math.min(mins,CFG.offlineCapMin)*tables*2.6);
   if(gain>0){ S.coins+=gain; save(); setTimeout(()=>toast(`오프라인 수익 +${gain} 🪙`),600); }
 }
 
 // 눈 입자
 let snow;
 function buildSnow(){
-  const N=500, pos=new Float32Array(N*3);
-  for(let i=0;i<N;i++){ pos[i*3]=(Math.random()-0.5)*50; pos[i*3+1]=Math.random()*18; pos[i*3+2]=(Math.random()-0.5)*50; }
+  const N=700, pos=new Float32Array(N*3);
+  for(let i=0;i<N;i++){ pos[i*3]=(Math.random()-0.5)*80; pos[i*3+1]=Math.random()*18; pos[i*3+2]=(Math.random()-0.5)*80; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
   snow=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:0.14,transparent:true,opacity:0.85,sizeAttenuation:true}));
   scene.add(snow);
@@ -481,13 +520,18 @@ loadAll().then(()=>{
   if(S.unlocked.worker2) hireWorker();
   if(S.unlocked.table2) buildTable(TABLES[1]);
   if(S.unlocked.table3) buildTable(TABLES[2]);
+  if(S.unlocked.table4) buildTable(TABLES[3]);
+  if(S.unlocked.table5) buildTable(TABLES[4]);
+  if(S.unlocked.worker3) hireWorker();
   if(S.unlocked.hunt2) HUNT.iv=2.2;
+  if(S.unlocked.hunt3) HUNT.iv=1.2;
+  if(S.unlocked.bag1) CFG.carryMax=5;
   if(S.unlocked.fire2) FIRE.ct=1.6;
   PADS.filter(p=>!S.unlocked[p.id]).forEach(makePad);
   offlineSettle();
   setTimeout(()=>toast('WASD/방향키 또는 드래그로 이동 · 발판을 밟아 확장!'),1200);
   const l=document.getElementById('loading'); l.style.opacity=0; setTimeout(()=>l.remove(),500);
-  window.__g={S,get hero(){return hero},workers,HUNT,FIRE,TABLES,get customers(){return customers},pads,get pads(){return pads}};
+  window.__g={S,CFG,get hero(){return hero},workers,HUNT,FIRE,TABLES,get customers(){return customers},get queue(){return queue},pads,get pads(){return pads}};
   requestAnimationFrame(loop);
 }).catch(e=>{
   document.querySelector('#loading p').textContent='에셋 로딩 실패: '+e.message;
