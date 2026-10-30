@@ -165,10 +165,19 @@ function buildStations(){
   const flb=textSprite('🔥 모닥불'); flb.position.set(FIRE.pos.x,2.6,FIRE.pos.z); scene.add(flb);
   // 식탁
   TABLES.forEach((t,i)=>{ if(t.built) buildTable(t); });
-  const coins1=staticAsset('coins',7.2,4.4,0,0.8); 
+  staticAsset('coins',7.2,4.4,0,0.8);
+  staticAsset('barrel',-4.2,4.6,0.5,1); staticAsset('barrel',3.2,5.8,2.4,1);
+  staticAsset('menu',1.6,4.6,-0.5,1);
+  staticAsset('log',7.8,-3.2,1.2,0.8); staticAsset('stump',9.2,-2.4,0.9,0.7);
+  staticAsset('bush',-10.5,7,0.4,.8); staticAsset('rock',11,6.5,0.9,.7);
+  // 장작 더미 (모닥불 옆)
+  staticAsset('log',FIRE.pos.x-1.6,FIRE.pos.z+1.4,0.3,0.9);
+  staticAsset('log',FIRE.pos.x-1.9,FIRE.pos.z+1.7,1.2,0.9);
 }
 function buildTable(t){
   t.built=true;
+  const rug=new THREE.Mesh(new THREE.CircleGeometry(2.3,36),new THREE.MeshStandardMaterial({color:0xd8b08c,roughness:1}));
+  rug.rotation.x=-Math.PI/2; rug.position.set(t.pos.x,0.015,t.pos.z); rug.receiveShadow=true; scene.add(rug);
   staticAsset('table',t.pos.x,t.pos.z,Math.random()*3,1);
   staticAsset('chair',t.pos.x-1.4,t.pos.z-1.0,2.2,1);
   staticAsset('chair',t.pos.x+1.4,t.pos.z+1.0,-0.7,1);
@@ -196,7 +205,7 @@ function unlockPad(g){
   if(p.id==='table2') buildTable(TABLES[1]);
   if(p.id==='table3') buildTable(TABLES[2]);
   if(p.id==='hunt2') HUNT.iv=2.2;
-  if(p.id==='fire2') FIRE.ct=1.6;
+  if(p.id==='fire2'){ FIRE.ct=1.6; campfire.scale.setScalar(1.25); }
   pop(g.position,0xffd34d);
 }
 function hireWorker(){
