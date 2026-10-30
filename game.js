@@ -199,7 +199,7 @@ function makePad(p){
   
   const costLb=textSprite(`${p.label} 🪙${p.cost}`);
   g.userData={pad:p,fill,ring,costLb,progress:0};
-  costLb.position.y=1.7; g.add(costLb);
+  costLb.position.y=2.6; g.add(costLb);
   scene.add(g); pads.push(g);
 }
 function unlockPad(g){
@@ -423,7 +423,7 @@ function updatePads(dt){
       g.userData.fill.scale.setScalar(0.2+0.8*(g.userData.progress/p.cost));
       const rem=Math.ceil(p.cost-g.userData.progress);
       if(rem!==g.userData.lastRem){ g.userData.lastRem=rem; g.remove(g.userData.costLb);
-        g.userData.costLb=textSprite(`${p.label} 🪙${rem}`); g.userData.costLb.position.y=1.7; g.add(g.userData.costLb); }
+        g.userData.costLb=textSprite(`${p.label} 🪙${rem}`); g.userData.costLb.position.y=2.6; g.add(g.userData.costLb); }
       if(g.userData.progress>=p.cost-0.001) unlockPad(g);
     }
   }
