@@ -2,50 +2,33 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>눈밭 밥집 - 방치형 경영 게임</title>
-<link rel="stylesheet" href="style.css?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Snow Camp — 방치형 아이소 메트릭</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#aebfd8;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+  #hud{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:8px;align-items:center}
+  .pill{background:rgba(20,28,44,.72);color:#fff;border-radius:20px;padding:8px 16px;font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px;backdrop-filter:blur(4px)}
+  #loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(#7e94b8,#aebfd8);color:#fff;z-index:50;transition:opacity .5s}
+  #loading h1{font-size:34px;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,.25)}
+  #loading p{margin:0 0 18px;opacity:.85}
+  #bar{width:220px;height:10px;background:rgba(255,255,255,.25);border-radius:5px;overflow:hidden}
+  #bar>div{height:100%;width:0%;background:#ffd34d;border-radius:5px;transition:width .2s}
+  #joy{position:fixed;bottom:26px;left:26px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.35);z-index:10;display:none;touch-action:none}
+  #joyknob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.55)}
+  #toast{position:fixed;top:64px;left:50%;transform:translateX(-50%);background:rgba(20,28,44,.8);color:#ffe28a;padding:8px 18px;border-radius:16px;font-size:15px;font-weight:600;z-index:10;opacity:0;transition:opacity .3s;pointer-events:none}
+</style>
 </head>
 <body>
-<div id="app">
-  <header>
-    <h1>❄️ 눈밭 밥집</h1>
-    <div id="resources">
-      <span class="res">🪙 <b id="res-coins">0</b></span>
-      <span class="res">😋 <b id="res-fed">0</b></span>
-      <span class="res">👷 <b id="res-workers">1</b></span>
-    </div>
-  </header>
-
-  <main>
-    <section id="field">
-      <div id="seats"></div>
-      <div id="workers"></div>
-      <div id="snow"></div>
-    </section>
-    <p id="hint">일꾼이 알아서 고기 수집 → 요리 → 서빙까지 해요. 코인으로 업그레이드를 사주세요!</p>
-
-    <section id="upgrades">
-      <h2>업그레이드</h2>
-      <div id="upgrade-list"></div>
-    </section>
-
-    <footer>
-      <button id="btn-reset">진행 초기화</button>
-      <p class="credit">Assets: Kenney - Pixel Platformer &amp; Food Expansion (CC0, kenney.nl)</p>
-    </footer>
-  </main>
-</div>
-
-<div id="offline-modal" class="hidden">
-  <div id="offline-box">
-    <h2>🌙 자리를 비운 사이...</h2>
-    <p id="offline-text"></p>
-    <button id="offline-close">확인</button>
-  </div>
-</div>
-
-<div id="toast-wrap"></div>
-<script src="game.js?v=3"></script>
+<div id="app"></div>
+<div id="hud"><div class="pill">🪙 <span id="coins">0</span></div></div>
+<div id="toast"></div>
+<div id="joy"><div id="joyknob"></div></div>
+<div id="loading"><h1>❄ Snow Camp</h1><p>눈밭 야영지를 키워보자</p><div id="bar"><div></div></div></div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module" src="game.js?v=4"></script>
 </body>
 </html>
