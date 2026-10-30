@@ -326,9 +326,12 @@
     $("res-workers").textContent = state.workers;
   }
 
-  function renderUpgrades() {
+  var upgradeBtns = {}; // key -> button (매 틱 재생성하지 않고 disabled만 갱신)
+
+  function buildUpgrades() {
     var wrap = $("upgrade-list");
     wrap.innerHTML = "";
+    upgradeBtns = {};
     UPGRADE_ORDER.forEach(function (key) {
       var u = UPGRADES[key];
       var lv = key === "hire" ? state.workers : key === "seats" ? state.seats : state.up[key];
@@ -346,11 +349,21 @@
       if (maxed) { btn.textContent = "MAX"; btn.disabled = true; }
       else {
         btn.textContent = "🪙 " + fmt(cost);
-        btn.disabled = state.coins < cost;
         btn.onclick = function () { buyUpgrade(key); };
       }
+      btn.dataset.cost = cost;
+      upgradeBtns[key] = btn;
       card.appendChild(btn);
       wrap.appendChild(card);
+    });
+    refreshUpgrades();
+  }
+
+  function refreshUpgrades() {
+    UPGRADE_ORDER.forEach(function (key) {
+      var btn = upgradeBtns[key];
+      if (!btn || btn.textContent === "MAX") return;
+      btn.disabled = state.coins < Number(btn.dataset.cost);
     });
   }
 
@@ -366,6 +379,7 @@
     if (state.seats !== beforeSeats) { ensureSim(); renderSeats(); }
     toast(u.name + " 구매!");
     save();
+    buildUpgrades();
     renderAll();
   }
 
@@ -373,7 +387,7 @@
     renderResources();
     renderSeatStates();
     renderWorkers();
-    renderUpgrades();
+    refreshUpgrades();
   }
 
   function toast(msg) {
@@ -415,6 +429,7 @@
       ensureSim();
       buildWorkers();
       renderSeats();
+      buildUpgrades();
       save();
       renderAll();
       toast("처음부터 다시 시작합니다");
@@ -465,6 +480,7 @@
         $("offline-modal").classList.remove("hidden");
       }
     }
+    buildUpgrades();
     save();
     renderAll();
     startLoop();
