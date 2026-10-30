@@ -38,7 +38,7 @@ const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xbfd2ea);
 scene.fog=new THREE.Fog(0xbfd2ea, 34, 70);
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,0.1,200);
-function fitCam(){ const a=innerWidth/innerHeight, s=11; camera.left=-s*a; camera.right=s*a; camera.top=s; camera.bottom=-s; camera.updateProjectionMatrix(); }
+function fitCam(){ const a=innerWidth/innerHeight, s=8.2; camera.left=-s*a; camera.right=s*a; camera.top=s; camera.bottom=-s; camera.updateProjectionMatrix(); }
 fitCam(); addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);fitCam();});
 const hemi=new THREE.HemisphereLight(0xeaf2ff,0x9fb4d8,0.95); scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xfff3e0,2.0);
@@ -255,7 +255,7 @@ function refreshStock(){
   stockMeshes.forEach(m=>scene.remove(m)); stockMeshes=[];
   HUNT.stock.forEach((_,i)=>{
     const m=cloneAsset('steak'); m.scale.setScalar(0.55);
-    m.position.set(HUNT.pos.x-1.2+i*0.8, 0, HUNT.pos.z-1.4); scene.add(m); stockMeshes.push(m);
+    m.position.set(HUNT.pos.x-1.1+i*0.75, 0, HUNT.pos.z-1.5); m.rotation.y=i*1.3; scene.add(m); stockMeshes.push(m);
   });
 }
 function refreshStew(){
@@ -431,6 +431,7 @@ loadAll().then(()=>{
   if(S.unlocked.fire2) FIRE.ct=1.6;
   PADS.filter(p=>!S.unlocked[p.id]).forEach(makePad);
   offlineSettle();
+  setTimeout(()=>toast('WASD/방향키 또는 드래그로 이동 · 발판을 밟아 확장!'),1200);
   const l=document.getElementById('loading'); l.style.opacity=0; setTimeout(()=>l.remove(),500);
   window.__g={S,get hero(){return hero},workers,HUNT,FIRE,TABLES,get customers(){return customers},pads,get pads(){return pads}};
   requestAnimationFrame(loop);
