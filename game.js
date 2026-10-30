@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { SkeletonUtils } from 'three/addons/utils/SkeletonUtils.js';
+import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
 // ============================== 설정 ==============================
 const CFG = {
@@ -56,7 +56,7 @@ function loadAll(){ return Promise.all(FILES.map(f=>new Promise((res,rej)=>{
 }))); }
 
 // ============================== 유틸 ==============================
-function cloneAsset(name){ const src=LIB[name]; const o=SkeletonUtils.clone(src.scene); o.traverse(m=>{ if(m.isMesh){m.castShadow=true;m.receiveShadow=true;} }); return o; }
+function cloneAsset(name){ const src=LIB[name]; const o=skeletonClone(src.scene); o.traverse(m=>{ if(m.isMesh){m.castShadow=true;m.receiveShadow=true;} }); return o; }
 function staticAsset(name,x,z,ry=0,s=1,y=0){ const o=cloneAsset(name); o.position.set(x,y,z); o.rotation.y=ry; o.scale.multiplyScalar(s); scene.add(o); return o; }
 function textSprite(text,{size=42,fg='#fff',bg='rgba(20,28,44,.75)',pad=18}={}){
   const c=document.createElement('canvas'); const g=c.getContext('2d');
