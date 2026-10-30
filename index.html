@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>눈밭 밥집 - 방치형 게임</title>
+<title>눈밭 밥집 - 방치형 경영 게임</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,41 +11,19 @@
   <header>
     <h1>❄️ 눈밭 밥집</h1>
     <div id="resources">
-      <span class="res"><img src="assets/meat.png" alt="고기"> <b id="res-meat">0</b></span>
-      <span class="res"><img src="assets/cooked.png" alt="요리"> <b id="res-cooked">0</b></span>
       <span class="res">🪙 <b id="res-coins">0</b></span>
       <span class="res">😋 <b id="res-fed">0</b></span>
+      <span class="res">👷 <b id="res-workers">1</b></span>
     </div>
   </header>
 
   <main>
     <section id="field">
-      <div id="villagers"></div>
-      <div id="campfire">
-        <img id="fire" src="assets/fire-1.png" alt="모닥불">
-        <div id="fire-label">모닥불</div>
-      </div>
+      <div id="seats"></div>
+      <div id="workers"></div>
       <div id="snow"></div>
     </section>
-
-    <section id="actions">
-      <button id="btn-gather" class="action-btn">
-        <img src="assets/meat.png" alt="">
-        <span>고기 줍기</span>
-        <small>+1 고기</small>
-      </button>
-      <button id="btn-cook" class="action-btn">
-        <img src="assets/cooked.png" alt="">
-        <span>요리하기</span>
-        <small>고기 1 → 요리 1</small>
-        <div id="cook-progress"><div id="cook-progress-fill"></div></div>
-      </button>
-      <button id="btn-serve" class="action-btn">
-        <img src="assets/dish.png" alt="">
-        <span>밥 주기</span>
-        <small>요리 1 → +5 코인</small>
-      </button>
-    </section>
+    <p id="hint">일꾼이 알아서 고기 수집 → 요리 → 서빙까지 해요. 코인으로 업그레이드를 사주세요!</p>
 
     <section id="upgrades">
       <h2>업그레이드</h2>
