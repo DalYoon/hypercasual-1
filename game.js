@@ -101,6 +101,7 @@ function buildWorld(){
   // 가장자리 나무/바위
   const ring=[[-12,-8,'pine1',.55],[-13,-1,'pine2',.6],[-11,6,'pine1',.5],[-6,11,'pine2',.55],[2,12,'pine1',.6],[9,10,'ctree',.55],[12,4,'pine2',.5],[13,-4,'pine1',.55],[8,-11,'pine2',.6],[0,-13,'pine1',.5],[-8,-11,'ctree',.55]];
   ring.forEach(([x,z,t,s],i)=>staticAsset(t,x,z,i*1.7,s));
+  staticAsset('pine2',-6.5,7.5,0.8,.45); staticAsset('pine1',7.5,7,2.2,.4); staticAsset('ctree',-8.5,-4.5,1.1,.42); staticAsset('bush',-3,8.8,0,.9); staticAsset('bush',9,-6.5,1,.8); staticAsset('rock',-6,-6.5,2.6,.6); staticAsset('stump',6.5,9.5,0.3,.8);
   staticAsset('rock',-11.5,3.5,0.4,.9); staticAsset('rock',10.5,-8,2.1,.8); staticAsset('rock',4,11.5,1.2,.7);
   staticAsset('stump',-9,8.5,0.8,.9); staticAsset('log',-10,-6,1.9,.9); staticAsset('bush',-7,-9.5,0,1);
   staticAsset('torch',-3.4,-1.6,0,1); staticAsset('torch',4.2,-3.2,0,1); staticAsset('torch',-1.5,4.8,0,1);
@@ -373,6 +374,21 @@ function offlineSettle(){
   if(gain>0){ S.coins+=gain; save(); setTimeout(()=>toast(`오프라인 수익 +${gain} 🪙`),600); }
 }
 
+// 눈 입자
+let snow;
+function buildSnow(){
+  const N=500, pos=new Float32Array(N*3);
+  for(let i=0;i<N;i++){ pos[i*3]=(Math.random()-0.5)*50; pos[i*3+1]=Math.random()*18; pos[i*3+2]=(Math.random()-0.5)*50; }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  snow=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:0.14,transparent:true,opacity:0.85,sizeAttenuation:true}));
+  scene.add(snow);
+}
+function updateSnow(dt){
+  const p=snow.geometry.attributes.position;
+  for(let i=0;i<p.count;i++){ let y=p.getY(i)-dt*1.6; if(y<0)y=18; p.setY(i,y); p.setX(i,p.getX(i)+Math.sin(clockT*0.8+i)*dt*0.25); }
+  p.needsUpdate=true;
+}
+
 // ============================== 메인 루프 ==============================
 let clockT=0, lastTs=0, saveT=0;
 function loop(ts){
@@ -383,6 +399,7 @@ function loop(ts){
   updateCustomers(dt);
   tryHeroPickupDrop();
   campfire.userData.flicker(clockT);
+  updateSnow(dt);
   [hero.rig,...workers.map(w=>w.rig),...customers.map(c=>c.rig)].forEach(r=>r.mixer.update(dt));
   for(let i=coinFx.length-1;i>=0;i--){ const f=coinFx[i]; f.t+=dt; f.m.position.y+=dt*2; f.m.material.opacity=0.9-f.t; f.m.scale.setScalar(1+f.t*2); if(f.t>0.9){scene.remove(f.m);coinFx.splice(i,1);} }
   saveT+=dt; if(saveT>3){saveT=0;save();}
@@ -392,7 +409,7 @@ function loop(ts){
 
 // ============================== 시작 ==============================
 loadAll().then(()=>{
-  buildWorld(); buildStations();
+  buildWorld(); buildStations(); buildSnow();
   hero={rig:makeRig('Rogue_Hooded',0,-4,0), carry:null, carryObj:null};
   // 저장 복원
   if(S.unlocked.worker1) hireWorker();
@@ -404,6 +421,7 @@ loadAll().then(()=>{
   PADS.filter(p=>!S.unlocked[p.id]).forEach(makePad);
   offlineSettle();
   const l=document.getElementById('loading'); l.style.opacity=0; setTimeout(()=>l.remove(),500);
+  window.__g={S,get hero(){return hero},workers,HUNT,FIRE,TABLES,get customers(){return customers},pads,get pads(){return pads}};
   requestAnimationFrame(loop);
 }).catch(e=>{
   document.querySelector('#loading p').textContent='에셋 로딩 실패: '+e.message;
