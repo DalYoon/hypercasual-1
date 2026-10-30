@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>눈밭 밥집 - 방치형 게임</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>❄️ 눈밭 밥집</h1>
+    <div id="resources">
+      <span class="res"><img src="assets/meat.png" alt="고기"> <b id="res-meat">0</b></span>
+      <span class="res"><img src="assets/cooked.png" alt="요리"> <b id="res-cooked">0</b></span>
+      <span class="res">🪙 <b id="res-coins">0</b></span>
+      <span class="res">😋 <b id="res-fed">0</b></span>
+    </div>
+  </header>
+
+  <main>
+    <section id="field">
+      <div id="villagers"></div>
+      <div id="campfire">
+        <img id="fire" src="assets/fire-1.png" alt="모닥불">
+        <div id="fire-label">모닥불</div>
+      </div>
+      <div id="snow"></div>
+    </section>
+
+    <section id="actions">
+      <button id="btn-gather" class="action-btn">
+        <img src="assets/meat.png" alt="">
+        <span>고기 줍기</span>
+        <small>+1 고기</small>
+      </button>
+      <button id="btn-cook" class="action-btn">
+        <img src="assets/cooked.png" alt="">
+        <span>요리하기</span>
+        <small>고기 1 → 요리 1</small>
+        <div id="cook-progress"><div id="cook-progress-fill"></div></div>
+      </button>
+      <button id="btn-serve" class="action-btn">
+        <img src="assets/dish.png" alt="">
+        <span>밥 주기</span>
+        <small>요리 1 → +5 코인</small>
+      </button>
+    </section>
+
+    <section id="upgrades">
+      <h2>업그레이드</h2>
+      <div id="upgrade-list"></div>
+    </section>
+
+    <footer>
+      <button id="btn-reset">진행 초기화</button>
+      <p class="credit">Assets: Kenney - Pixel Platformer &amp; Food Expansion (CC0, kenney.nl)</p>
+    </footer>
+  </main>
+</div>
+
+<div id="offline-modal" class="hidden">
+  <div id="offline-box">
+    <h2>🌙 자리를 비운 사이...</h2>
+    <p id="offline-text"></p>
+    <button id="offline-close">확인</button>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+<script src="game.js"></script>
+</body>
+</html>
