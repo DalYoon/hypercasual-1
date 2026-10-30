@@ -6,7 +6,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 const CFG = {
   camOffset: new THREE.Vector3(10.5, 12.5, 10.5),
   heroSpeed: 5.2, workerSpeed: 3.4, custSpeed: 2.8,
-  huntInterval: 4.0, cookTime: 3.0, eatTime: 5.0, custSpawn: 7.0,
+  huntInterval: 4.0, cookTime: 3.0, eatTime: 4.5, custSpawn: 5.0,
   meatMax: 4, stewMax: 4, carryMax: 3,
   offlineCapMin: 120,
 };
@@ -116,6 +116,12 @@ function buildWorld(){
   [[-8,5,2.2],[6,-6,2.6],[-4,-8,1.8],[9,6,1.9],[3,9,1.5]].forEach(([x,z,s])=>{
     const d=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),driftM);
     d.scale.set(s,s*0.9,s*0.32); d.position.set(x,-0.15,z); d.receiveShadow=true; scene.add(d);
+  });
+  // 얼음 패치
+  const iceM=new THREE.MeshStandardMaterial({color:0xd3e4f7,roughness:0.35});
+  [[-5,-6,2.6],[6.5,7.5,2.0],[9,-5,1.6],[-9.5,-1,1.8]].forEach(([x,z,r],i)=>{
+    const ice=new THREE.Mesh(new THREE.CircleGeometry(r,24),iceM);
+    ice.rotation.x=-Math.PI/2; ice.position.set(x,0.012,z); ice.receiveShadow=true; scene.add(ice);
   });
   // 가장자리 나무/바위
   const ring=[[-12,-8,'pine1',.55],[-13,-1,'pine2',.6],[-11,6,'pine1',.5],[-6,11,'pine2',.55],[2,12,'pine1',.6],[9,10,'ctree',.55],[12,4,'pine2',.5],[13,-4,'pine1',.55],[8,-11,'pine2',.6],[0,-13,'pine1',.5],[-8,-11,'ctree',.55]];
@@ -357,7 +363,7 @@ let customers=[];
 function updateCustomers(dt){
   custT+=dt;
   const free=TABLES.filter(t=>t.built&&!t.cust);
-  if(custT>=CFG.custSpawn && free.length>0 && customers.length<4){
+  if(custT>=CFG.custSpawn && free.length>0 && customers.length<5){
     custT=0;
     const kinds=['Knight','Barbarian','Mage','Rogue'];
     const rig=makeRig(kinds[Math.floor(Math.random()*kinds.length)], 0, -13, 0);
