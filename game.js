@@ -55,6 +55,25 @@ function loadAll(){ return Promise.all(FILES.map(f=>new Promise((res,rej)=>{
   loader.load('assets/'+f+'.glb',g=>{ LIB[f]=g; loaded++; barEl.style.width=(loaded/FILES.length*100)+'%'; res(); },undefined,e=>{console.error('load fail',f,e); rej(e);});
 }))); }
 
+// ============================== SFX ==============================
+let AC=null;
+function audio(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(AC&&AC.state==='suspended')AC.resume(); return AC; }
+function beep(f0,f1,dur,type='square',vol=0.06,delay=0){
+  const ac=audio(); if(!ac)return;
+  const t=ac.currentTime+delay;
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type=type; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur);
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur+0.02);
+}
+const sfx={
+  pickup(){ beep(500,880,0.09,'square',0.05); },
+  drop(){ beep(420,300,0.08,'triangle',0.06); },
+  coin(){ beep(1100,1100,0.07,'sine',0.07); beep(1560,1560,0.09,'sine',0.06,0.06); },
+  unlock(){ [523,659,784,1046].forEach((f,i)=>beep(f,f,0.11,'triangle',0.07,i*0.07)); },
+  serve(){ beep(700,990,0.08,'sine',0.05); },
+};
+
 // ============================== 유틸 ==============================
 function cloneAsset(name){ const src=LIB[name]; const o=skeletonClone(src.scene); o.traverse(m=>{ if(m.isMesh){m.castShadow=true;m.receiveShadow=true;} }); return o; }
 function staticAsset(name,x,z,ry=0,s=1,y=0){ const o=cloneAsset(name); o.position.set(x,y,z); o.rotation.y=ry; o.scale.multiplyScalar(s); scene.add(o); return o; }
@@ -169,6 +188,7 @@ function makePad(p){
   scene.add(g); pads.push(g);
 }
 function unlockPad(g){
+  sfx.unlock();
   const p=g.userData.pad; S.unlocked[p.id]=true; save();
   scene.remove(g); pads=pads.filter(x=>x!==g);
   toast(`✅ ${p.label} 완료!`);
@@ -234,11 +254,12 @@ function carryMesh(kind){
   return cloneAsset(kind==='meat'?'steak':'pot');
 }
 function updateHeroCarry(){
-  // 기존 운반 표시 제거
-  if(hero.carryObj){ hero.rig.obj.remove(hero.carryObj); hero.carryObj=null; }
+  hero.carryObjs.forEach(m=>hero.rig.obj.remove(m)); hero.carryObjs=[];
   if(hero.carry){
-    const m=carryMesh(hero.carry); m.scale.setScalar(0.45); m.position.set(0,2.4,0); m.rotation.y=0.6;
-    hero.rig.obj.add(m); hero.carryObj=m;
+    for(let i=0;i<hero.carry.n;i++){
+      const m=carryMesh(hero.carry.kind); m.scale.setScalar(0.45); m.position.set(0,2.1+i*0.42,0); m.rotation.y=0.6+i*0.5;
+      hero.rig.obj.add(m); hero.carryObjs.push(m);
+    }
   }
 }
 function updateStations(dt){
@@ -267,13 +288,27 @@ function refreshStew(){
 }
 function tryHeroPickupDrop(){
   const hp=hero.rig.obj.position;
-  if(!hero.carry){
-    if(HUNT.stock.length>0 && dist(hp,HUNT.pos)<2.2){ HUNT.stock.pop(); hero.carry='meat'; playAnim(hero.rig,'PickUp'); updateHeroCarry(); refreshStock(); pop(hp,0xff6b6b); }
-    else if(FIRE.stew>0 && dist(hp,FIRE.pos)<2.4){ FIRE.stew--; hero.carry='stew'; playAnim(hero.rig,'PickUp'); updateHeroCarry(); refreshStew(); pop(hp,0xffa640); }
-  } else if(hero.carry==='meat' && dist(hp,FIRE.pos)<2.2 && FIRE.raw<CFG.stewMax){
-    FIRE.raw++; hero.carry=null; updateHeroCarry(); pop(FIRE.pos,0xff8a30);
-  } else if(hero.carry==='stew'){
-    for(const t of TABLES){ if(t.built && t.stew<2 && dist(hp,t.pos)<2.0){ t.stew++; hero.carry=null; updateHeroCarry(); pop(t.pos,0x9fdf7a); break; } }
+  if(!hero.carry || (hero.carry.n<CFG.carryMax)){
+    if(HUNT.stock.length>0 && dist(hp,HUNT.pos)<2.2 && (!hero.carry||hero.carry.kind==='meat')){
+      HUNT.stock.pop();
+      if(hero.carry)hero.carry.n++; else hero.carry={kind:'meat',n:1};
+      playAnim(hero.rig,'PickUp'); updateHeroCarry(); refreshStock(); pop(hp,0xff6b6b); sfx.pickup();
+    }
+    else if(FIRE.stew>0 && dist(hp,FIRE.pos)<2.4 && (!hero.carry||hero.carry.kind==='stew')){
+      FIRE.stew--;
+      if(hero.carry)hero.carry.n++; else hero.carry={kind:'stew',n:1};
+      playAnim(hero.rig,'PickUp'); updateHeroCarry(); refreshStew(); pop(hp,0xffa640); sfx.pickup();
+    }
+  }
+  if(hero.carry && hero.carry.kind==='meat' && dist(hp,FIRE.pos)<2.2 && FIRE.raw<CFG.stewMax){
+    const n=Math.min(hero.carry.n, CFG.stewMax-FIRE.raw); FIRE.raw+=n; hero.carry.n-=n;
+    if(hero.carry.n<=0)hero.carry=null;
+    updateHeroCarry(); pop(FIRE.pos,0xff8a30); sfx.drop();
+  } else if(hero.carry && hero.carry.kind==='stew'){
+    for(const t of TABLES){ if(t.built && t.stew<2 && dist(hp,t.pos)<2.0){
+      const n=Math.min(hero.carry.n,2-t.stew); t.stew+=n; hero.carry.n-=n;
+      if(hero.carry.n<=0)hero.carry=null;
+      updateHeroCarry(); pop(t.pos,0x9fdf7a); sfx.drop(); break; } }
   }
 }
 // 일꾼 AI
@@ -291,7 +326,7 @@ function updateWorker(w,dt){
   else if(w.state==='toTable'){
     const t=TABLES.find(t=>t.built&&t.stew<2);
     if(!t){ w.state='idle'; }
-    else { go(t.pos); if(step(w,dt)){ t.stew++; setWorkerCarry(w,null); pop(t.pos,0x9fdf7a); w.state='idle'; } }
+    else { go(t.pos); if(step(w,dt)){ t.stew++; setWorkerCarry(w,null); pop(t.pos,0x9fdf7a); sfx.serve(); w.state='idle'; } }
   }
 }
 function setWorkerCarry(w,kind){
@@ -326,6 +361,10 @@ function updateCustomers(dt){
       if(!t){ c.state='leave'; continue; }
       t.cust=c; c.table=t; c.state='toSeat';
     }
+    if(c.state==='wait'){
+      if(!c.bubble){ c.bubble=textSprite('🍲',{size:40,bg:'rgba(255,255,255,.85)'}); c.bubble.position.copy(c.table.pos).add(new THREE.Vector3(-1.4,2.3,-1.0)); scene.add(c.bubble); }
+      c.bubble.position.y=2.3+Math.sin(clockT*3)*0.1;
+    } else if(c.bubble){ scene.remove(c.bubble); c.bubble=null; }
     if(c.state==='toSeat'){
       const sp=new THREE.Vector3(c.table.pos.x-1.4,0,c.table.pos.z-1.0);
       const d=new THREE.Vector3().subVectors(sp,o.position); d.y=0;
@@ -408,7 +447,7 @@ function loop(ts){
   updateCustomers(dt);
   tryHeroPickupDrop();
   campfire.userData.flicker(clockT);
-  if(hero.carryObj) hero.carryObj.position.y=2.4+Math.sin(clockT*4)*0.12;
+  hero.carryObjs.forEach((m,i)=>m.position.y=2.1+i*0.42+Math.sin(clockT*4)*0.08);
   workers.forEach(w=>{ if(w.carryObj) w.carryObj.position.y=2.4+Math.sin(clockT*4+1)*0.12; });
   updateSnow(dt);
   [hero.rig,...workers.map(w=>w.rig),...customers.map(c=>c.rig)].forEach(r=>r.mixer.update(dt));
@@ -421,7 +460,7 @@ function loop(ts){
 // ============================== 시작 ==============================
 loadAll().then(()=>{
   buildWorld(); buildStations(); buildSnow();
-  hero={rig:makeRig('Rogue_Hooded',0,-4,0), carry:null, carryObj:null};
+  hero={rig:makeRig('Rogue_Hooded',0,-4,0), carry:null, carryObjs:[]};
   // 저장 복원
   if(S.unlocked.worker1) hireWorker();
   if(S.unlocked.worker2) hireWorker();
