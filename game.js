@@ -162,8 +162,10 @@ function makePad(p){
   ring.rotation.x=-Math.PI/2; g.add(ring);
   const fill=new THREE.Mesh(new THREE.CircleGeometry(0.7,40),new THREE.MeshBasicMaterial({color:0xffd34d,transparent:true,opacity:.25,side:THREE.DoubleSide}));
   fill.rotation.x=-Math.PI/2; g.add(fill);
-  const lb=textSprite(`${p.label} 🪙${p.cost}`); lb.position.y=1.7; g.add(lb);
-  g.userData={pad:p,fill,ring,lb,progress:0};
+  
+  const costLb=textSprite(`${p.label} 🪙${p.cost}`);
+  g.userData={pad:p,fill,ring,costLb,progress:0};
+  costLb.position.y=1.7; g.add(costLb);
   scene.add(g); pads.push(g);
 }
 function unlockPad(g){
@@ -180,7 +182,7 @@ function unlockPad(g){
 function hireWorker(){
   const kinds=['Rogue','Mage'];
   const rig=makeRig(kinds[workers.length%kinds.length], FIRE.pos.x+1.5, FIRE.pos.z-1.5, Math.PI);
-  workers.push({rig, state:'idle', carry:null, t:0, target:new THREE.Vector3()});
+  workers.push({rig, state:'idle', carry:null, carryObj:null, t:0, target:new THREE.Vector3()});
 }
 // 이펙트
 function pop(pos,color){
@@ -204,21 +206,19 @@ addEventListener('touchend',e=>{ for(const t of e.changedTouches){ if(t.identifi
 // ============================== 로직 ==============================
 const camTarget=new THREE.Vector3(0,0,0);
 function updateHero(dt){
-  let vx=0,vz=0;
-  if(keys['w']||keys['arrowup']){vx-=1;vz-=1;} if(keys['s']||keys['arrowdown']){vx+=1;vz+=1;}
-  if(keys['a']||keys['arrowleft']){vx-=1;vz+=1;} if(keys['d']||keys['arrowright']){vx+=1;vz-=1;}
-  vx+=joyVec.x-joyVec.y*0; vz+=joyVec.y; // 간단 매핑: 화면상 이동
-  // 조이스틱을 아이소 방향에 맞게 변환
-  const jx=joyVec.x, jy=joyVec.y;
-  vx=(jx - jy)*0.7071 + (keys['w']||keys['arrowup']?-0.7071:0)+(keys['s']||keys['arrowdown']?0.7071:0)+(keys['a']||keys['arrowleft']?-0.7071:0)+(keys['d']||keys['arrowright']?0.7071:0);
-  vz=(jx + jy)*0.7071 + (keys['w']||keys['arrowup']?-0.7071:0)+(keys['s']||keys['arrowdown']?0.7071:0)+(keys['a']||keys['arrowleft']?0.7071:0)+(keys['d']||keys['arrowright']?-0.7071:0);
+  let kx=0,ky=0; // 화면 기준 입력
+  if(keys['w']||keys['arrowup'])ky-=1; if(keys['s']||keys['arrowdown'])ky+=1;
+  if(keys['a']||keys['arrowleft'])kx-=1; if(keys['d']||keys['arrowright'])kx+=1;
+  kx+=joyVec.x; ky+=joyVec.y;
+  // 화면 입력 -> 아이소 월드 방향
+  let vx=(kx-ky)*0.7071, vz=(kx+ky)*0.7071;
   const len=Math.hypot(vx,vz);
   if(len>0.05){
     vx/=Math.max(len,1); vz/=Math.max(len,1);
     hero.rig.obj.position.x+=vx*CFG.heroSpeed*dt;
     hero.rig.obj.position.z+=vz*CFG.heroSpeed*dt;
     const r=Math.hypot(hero.rig.obj.position.x,hero.rig.obj.position.z);
-    if(r>13.5){ hero.rig.obj.position.multiplyScalar(13.5/r); }
+    if(r>13.5){ hero.rig.obj.position.x*=13.5/r; hero.rig.obj.position.z*=13.5/r; }
     hero.rig.obj.rotation.y=Math.atan2(vx,vz);
     playAnim(hero.rig,'Running_A');
   } else playAnim(hero.rig,'Idle');
@@ -237,7 +237,7 @@ function updateHeroCarry(){
   // 기존 운반 표시 제거
   if(hero.carryObj){ hero.rig.obj.remove(hero.carryObj); hero.carryObj=null; }
   if(hero.carry){
-    const m=carryMesh(hero.carry); m.scale.setScalar(0.8); m.position.set(0,2.2,0);
+    const m=carryMesh(hero.carry); m.scale.setScalar(0.45); m.position.set(0,2.4,0); m.rotation.y=0.6;
     hero.rig.obj.add(m); hero.carryObj=m;
   }
 }
@@ -268,8 +268,8 @@ function refreshStew(){
 function tryHeroPickupDrop(){
   const hp=hero.rig.obj.position;
   if(!hero.carry){
-    if(HUNT.stock.length>0 && dist(hp,HUNT.pos)<2.2){ HUNT.stock.pop(); hero.carry='meat'; playAnim(hero.rig,'PickUp'); updateHeroCarry(); refreshStock(); }
-    else if(FIRE.stew>0 && dist(hp,FIRE.pos)<2.4){ FIRE.stew--; hero.carry='stew'; playAnim(hero.rig,'PickUp'); updateHeroCarry(); refreshStew(); }
+    if(HUNT.stock.length>0 && dist(hp,HUNT.pos)<2.2){ HUNT.stock.pop(); hero.carry='meat'; playAnim(hero.rig,'PickUp'); updateHeroCarry(); refreshStock(); pop(hp,0xff6b6b); }
+    else if(FIRE.stew>0 && dist(hp,FIRE.pos)<2.4){ FIRE.stew--; hero.carry='stew'; playAnim(hero.rig,'PickUp'); updateHeroCarry(); refreshStew(); pop(hp,0xffa640); }
   } else if(hero.carry==='meat' && dist(hp,FIRE.pos)<2.2 && FIRE.raw<CFG.stewMax){
     FIRE.raw++; hero.carry=null; updateHeroCarry(); pop(FIRE.pos,0xff8a30);
   } else if(hero.carry==='stew'){
@@ -285,14 +285,19 @@ function updateWorker(w,dt){
     else if(HUNT.stock.length>0 && FIRE.raw<CFG.stewMax) { w.state='toMeat'; }
     else playAnim(w.rig,'Idle');
   }
-  if(w.state==='toStew'){ go(FIRE.pos); if(step(w,dt)){ if(FIRE.stew>0){FIRE.stew--; w.carry='stew'; playAnim(w.rig,'PickUp'); refreshStew(); w.state='toTable';} else w.state='idle'; } }
-  else if(w.state==='toMeat'){ go(HUNT.pos); if(step(w,dt)){ if(HUNT.stock.length>0){HUNT.stock.pop(); w.carry='meat'; playAnim(w.rig,'PickUp'); refreshStock(); w.state='toFire';} else w.state='idle'; } }
-  else if(w.state==='toFire'){ go(FIRE.pos); if(step(w,dt)){ FIRE.raw++; w.carry=null; pop(FIRE.pos,0xff8a30); w.state='idle'; } }
+  if(w.state==='toStew'){ go(FIRE.pos); if(step(w,dt)){ if(FIRE.stew>0){FIRE.stew--; setWorkerCarry(w,'stew'); playAnim(w.rig,'PickUp'); refreshStew(); w.state='toTable';} else w.state='idle'; } }
+  else if(w.state==='toMeat'){ go(HUNT.pos); if(step(w,dt)){ if(HUNT.stock.length>0){HUNT.stock.pop(); setWorkerCarry(w,'meat'); playAnim(w.rig,'PickUp'); refreshStock(); w.state='toFire';} else w.state='idle'; } }
+  else if(w.state==='toFire'){ go(FIRE.pos); if(step(w,dt)){ FIRE.raw++; setWorkerCarry(w,null); pop(FIRE.pos,0xff8a30); w.state='idle'; } }
   else if(w.state==='toTable'){
     const t=TABLES.find(t=>t.built&&t.stew<2);
     if(!t){ w.state='idle'; }
-    else { go(t.pos); if(step(w,dt)){ t.stew++; w.carry=null; pop(t.pos,0x9fdf7a); w.state='idle'; } }
+    else { go(t.pos); if(step(w,dt)){ t.stew++; setWorkerCarry(w,null); pop(t.pos,0x9fdf7a); w.state='idle'; } }
   }
+}
+function setWorkerCarry(w,kind){
+  if(w.carryObj){ w.rig.obj.remove(w.carryObj); w.carryObj=null; }
+  w.carry=kind;
+  if(kind){ const m=carryMesh(kind); m.scale.setScalar(0.45); m.position.set(0,2.4,0); w.rig.obj.add(m); w.carryObj=m; }
 }
 function step(w,dt){
   const o=w.rig.obj; const d=new THREE.Vector3().subVectors(w.target,o.position); d.y=0;
@@ -335,7 +340,8 @@ function updateCustomers(dt){
       if(c.t>=CFG.eatTime){
         const gain=15+Math.floor(Math.random()*10);
         S.coins+=gain; S.served++; save(); pop(c.table.pos,0xffd34d);
-        toast(`+${gain} 🪙`);
+        const ft=textSprite(`+${gain} 🪙`,{size:46,fg:'#ffd34d'}); ft.position.copy(c.table.pos).add(new THREE.Vector3(0,2.2,0)); scene.add(ft);
+        coinFx.push({m:ft,t:0,isText:true});
         c.state='leave'; playAnim(c.rig,'Cheer');
         c.cheerT=0;
       }
@@ -361,6 +367,9 @@ function updatePads(dt){
       const pay=Math.min(rate*dt, S.coins, p.cost-g.userData.progress);
       S.coins-=pay; g.userData.progress+=pay;
       g.userData.fill.scale.setScalar(0.2+0.8*(g.userData.progress/p.cost));
+      const rem=Math.ceil(p.cost-g.userData.progress);
+      if(rem!==g.userData.lastRem){ g.userData.lastRem=rem; g.remove(g.userData.costLb);
+        g.userData.costLb=textSprite(`${p.label} 🪙${rem}`); g.userData.costLb.position.y=1.7; g.add(g.userData.costLb); }
       if(g.userData.progress>=p.cost-0.001) unlockPad(g);
     }
   }
@@ -399,9 +408,11 @@ function loop(ts){
   updateCustomers(dt);
   tryHeroPickupDrop();
   campfire.userData.flicker(clockT);
+  if(hero.carryObj) hero.carryObj.position.y=2.4+Math.sin(clockT*4)*0.12;
+  workers.forEach(w=>{ if(w.carryObj) w.carryObj.position.y=2.4+Math.sin(clockT*4+1)*0.12; });
   updateSnow(dt);
   [hero.rig,...workers.map(w=>w.rig),...customers.map(c=>c.rig)].forEach(r=>r.mixer.update(dt));
-  for(let i=coinFx.length-1;i>=0;i--){ const f=coinFx[i]; f.t+=dt; f.m.position.y+=dt*2; f.m.material.opacity=0.9-f.t; f.m.scale.setScalar(1+f.t*2); if(f.t>0.9){scene.remove(f.m);coinFx.splice(i,1);} }
+  for(let i=coinFx.length-1;i>=0;i--){ const f=coinFx[i]; f.t+=dt; f.m.position.y+=dt*(f.isText?1.2:2); if(f.m.material){f.m.material.opacity=Math.max(0,0.9-f.t);} if(!f.isText)f.m.scale.setScalar(1+f.t*2); if(f.t>0.9){scene.remove(f.m);coinFx.splice(i,1);} }
   saveT+=dt; if(saveT>3){saveT=0;save();}
   document.getElementById('coins').textContent=fmt(S.coins);
   renderer.render(scene,camera);
