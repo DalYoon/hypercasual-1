@@ -231,7 +231,7 @@ function updateHero(dt){
   if(keys['a']||keys['arrowleft'])kx-=1; if(keys['d']||keys['arrowright'])kx+=1;
   kx+=joyVec.x; ky+=joyVec.y;
   // 화면 입력 -> 아이소 월드 방향
-  let vx=(kx-ky)*0.7071, vz=(kx+ky)*0.7071;
+  let vx=(kx+ky)*0.7071, vz=(ky-kx)*0.7071;
   const len=Math.hypot(vx,vz);
   if(len>0.05){
     vx/=Math.max(len,1); vz/=Math.max(len,1);
