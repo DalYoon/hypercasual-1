@@ -11,12 +11,12 @@ const CFG = {
   offlineCapMin: 120,
 };
 const PAD_DEFS=[
-  { id:'table',  label:'식탁 업그레이드',  pos:[4.5,-3.0],  base:[120,300,600],        mult:2.2, icon:'table' },
-  { id:'hunter', label:'고기 알바 고용', pos:[-3.0,-4.0], base:[50,220,380,600,850],  mult:1.6, icon:'hunter' },
+  { id:'table',  label:'카운터 확장',  pos:[4.5,-3.0],  base:[120,300,600],        mult:2.2, icon:'table' },
+  { id:'hunter', label:'재료 알바 고용', pos:[-3.0,-4.0], base:[50,220,380,600,850],  mult:1.6, icon:'hunter' },
   { id:'server', label:'서빙 알바 고용', pos:[-7.0,-4.5], base:[50,220,380,600,850],  mult:1.6, icon:'server' },
-  { id:'hunt',   label:'사냥 가속',  pos:[-5.5,-1.0], base:[80,200,400,700],        mult:1.7, icon:'steak' },
-  { id:'fire',   label:'모닥불 강화', pos:[2.0,5.2],  base:[100,250,500],           mult:1.7, icon:'pot' },
-  { id:'bag',    label:'큰 가방',   pos:[-3.0,-8.0],  base:[150],                   mult:1.8, icon:'bag' },
+  { id:'hunt',   label:'재료 입고',  pos:[-5.5,-1.0], base:[80,200,400,700],        mult:1.7, icon:'steak' },
+  { id:'fire',   label:'주방 강화', pos:[2.0,5.2],  base:[100,250,500],           mult:1.7, icon:'Large_Pot_Filled' },
+  { id:'bag',    label:'큰 쟁반',   pos:[-3.0,-8.0],  base:[150],                   mult:1.8, icon:'bag' },
 ];
 // 무한 레벨: 가격은 지수 곡선으로 계속 상승, 발판은 사라지지 않음
 function costAt(def,lv){ const b=def.base; return lv<b.length ? b[lv] : Math.round(b[b.length-1]*Math.pow(def.mult,lv-b.length+1)); }
@@ -49,8 +49,8 @@ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 app.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0xbfd2ea);
-scene.fog=new THREE.Fog(0xbfd2ea, 34, 70);
+scene.background=new THREE.Color(0xf3e3c8);
+scene.fog=new THREE.Fog(0xf3e3c8, 36, 75);
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,0.1,200);
 function fitCam(){ const a=innerWidth/innerHeight, s=11.2; camera.left=-s*a; camera.right=s*a; camera.top=s; camera.bottom=-s; camera.updateProjectionMatrix(); }
 fitCam(); addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);fitCam();});
@@ -61,7 +61,7 @@ sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-20;sun.shadow.camera.
 scene.add(sun); scene.add(sun.target);
 
 // ============================== 에셋 로딩 ==============================
-const FILES=['Rogue_Hooded','Rogue','Mage','Knight','Barbarian','pine1','pine2','ctree','rock','bush','log','stump','table','table_small','chair','counter','pot','steak','menu','torch','barrel','coins'];
+const FILES=['Rogue_Hooded','Rogue','Mage','Knight','Barbarian','pine1','pine2','ctree','rock','bush','steak','menu','coins','Ramen','Udon','Gyoza','Dango','Chukaman','Large_Pot_Filled','Oven','Counter_Straight','Counter_End','Stool','Wood_Floor','Red_Wood_Wall','Shoji_Wall','Japanese_Door','Torii_Gate','Wall_with_Shelves','Kitchen','Sushi_Truck','Hanging_Lantern','Post_Lantern','Red_Lantern'];
 const loader=new GLTFLoader();
 const LIB={}; let loaded=0;
 const barEl=document.querySelector('#bar>div');
@@ -122,140 +122,29 @@ function makeRig(name,x,z,ry=0){
 
 // ============================== 월드 꾸미기 ==============================
 function buildWorld(){
-  // 눈 지형
+  // 따뜻한 야외 바닥
   const geo=new THREE.CylinderGeometry(30,30.8,1.2,64);
-  const mat=new THREE.MeshStandardMaterial({color:0xe9eefb,roughness:0.95});
+  const mat=new THREE.MeshStandardMaterial({color:0xd9cdb2,roughness:0.95});
   const ground=new THREE.Mesh(geo,mat); ground.position.y=-0.6; ground.receiveShadow=true; scene.add(ground);
-  // 얼음 패치 (바닥 무늬만, 안쪽 최소)
-  const iceM=new THREE.MeshStandardMaterial({color:0xd3e4f7,roughness:0.35});
-  [[-6,-7,2.4],[-15,3,2.6],[16,-4,2.2],[4,-24,2.6],[-17,14,2.4],[18,12,2.2]].forEach(([x,z,r])=>{
-    const ice=new THREE.Mesh(new THREE.CircleGeometry(r,24),iceM);
-    ice.rotation.x=-Math.PI/2; ice.position.set(x,0.012,z); ice.receiveShadow=true; scene.add(ice);
-  });
-  // 마을 안 조명 토치만 유지
-  staticAsset('torch',-3.4,-1.6,0,1); staticAsset('torch',4.2,-3.2,0,1); staticAsset('torch',-1.5,4.8,0,1); staticAsset('torch',3.5,8,0,1);
-  buildFence();
-}
-// ============================== 울타리 마을 ==============================
-// 둥근 사각형 마을 경계: x[-11.5,11.5], z[-21.5,27.5], 코너 r=5 / 남쪽 게이트 |x|<2.4
-const FENCE={hx:11.5, cz:3, hz:24.5, r:5, gate:2.4};
-function fencePerimeter(){
-  // {x,z,tx,tz} 점열: 접선(tx,tz) 기준, 바깥 법선은 (tz,-tx) 부호 보정
-  const {hx,cz,hz,r,gate}=FENCE;
-  const step=1.7, pts=[];
-  const push=(x,z,tx,tz)=>pts.push({x,z,tx,tz});
-  const line=(x1,z1,x2,z2,skipGate)=>{
-    const len=Math.hypot(x2-x1,z2-z1), n=Math.max(1,Math.round(len/step));
-    for(let i=0;i<=n;i++){
-      const t=i/n, x=x1+(x2-x1)*t, z=z1+(z2-z1)*t;
-      if(skipGate && Math.abs(x)<gate) continue;
-      push(x,z,(x2-x1)/len,(z2-z1)/len);
-    }
-  };
-  const arc=(cx,cz2,a0,a1)=>{
-    const len=Math.abs(a1-a0)*r, n=Math.max(2,Math.round(len/step));
-    for(let i=0;i<=n;i++){
-      const a=a0+(a1-a0)*(i/n);
-      push(cx+Math.cos(a)*r, cz2+Math.sin(a)*r, -Math.sin(a)*Math.sign(a1-a0), Math.cos(a)*Math.sign(a1-a0));
-    }
-  };
-  const zS=cz-hz, zN=cz+hz;
-  // 남(→), 동(↑), 북(←), 서(↓) - 반시계
-  line(-(hx-r),zS, hx-r,zS, true);                    // 남쪽 (게이트 포함)
-  arc(hx-r, zS+r, -Math.PI/2, 0);                     // SE 코너
-  line(hx, zS+r, hx, zN-r);                           // 동쪽
-  arc(hx-r, zN-r, 0, Math.PI/2);                      // NE 코너
-  line(hx-r, zN, -(hx-r), zN);                        // 북쪽
-  arc(-(hx-r), zN-r, Math.PI/2, Math.PI);             // NW 코너
-  line(-hx, zN-r, -hx, zS+r);                         // 서쪽
-  arc(-(hx-r), zS+r, Math.PI, Math.PI*1.5);           // SW 코너
-  // 바깥 법선 계산 (마을 중심 반대 방향)
-  pts.forEach(p=>{
-    let nx=p.tz, nz=-p.tx;
-    const dx=p.x-0, dz=p.z-cz;
-    if(nx*dx+nz*dz<0){ nx=-nx; nz=-nz; }
-    p.nx=nx; p.nz=nz;
-  });
-  return pts;
-}
-function buildFence(){
-  const pts=fencePerimeter();
-  const postM=new THREE.MeshStandardMaterial({color:0x7a4a26,roughness:.85});
-  const railM=new THREE.MeshStandardMaterial({color:0x9c6a3c,roughness:.85});
-  const postG=new THREE.CylinderGeometry(0.09,0.115,1.0,7);
-  const railG=new THREE.BoxGeometry(0.075,0.11,1);
-  const posts=new THREE.InstancedMesh(postG,postM,pts.length);
-  const rails=new THREE.InstancedMesh(railG,railM,pts.length*2);
-  posts.castShadow=true; rails.castShadow=true;
-  const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), up=new THREE.Vector3(0,1,0), sc=new THREE.Vector3(1,1,1);
-  let ri=0;
-  for(let i=0;i<pts.length;i++){
-    const p=pts[i];
-    m4.compose(new THREE.Vector3(p.x,0.5,p.z), q.identity(), sc.set(1,1,1));
-    posts.setMatrixAt(i,m4);
-    // 레일: 다음 점까지 (마지막 점은 첫 점과 연결하지 않음 - 게이트/시계열 끊김 방지를 위해 i+1까지만)
-    if(i<pts.length-1){
-      const n=pts[i+1];
-      const mx=(p.x+n.x)/2, mz=(p.z+n.z)/2;
-      const len=Math.hypot(n.x-p.x,n.z-p.z);
-      if(len<2.6){ // 게이트 건너뛰기 연결 방지
-        const ang=Math.atan2(n.x-p.x,n.z-p.z);
-        q.setFromAxisAngle(up,ang);
-        for(const h of [0.32,0.68]){
-          m4.compose(new THREE.Vector3(mx,h,mz), q, sc.set(1,1,len));
-          rails.setMatrixAt(ri++,m4);
-        }
-      }
-    }
-  }
-  rails.count=ri;
-  scene.add(posts); scene.add(rails);
-  // 게이트 기둥 2개 + 토치
-  const gateM=new THREE.MeshStandardMaterial({color:0x6b3f20,roughness:.8});
-  for(const gx of [-FENCE.gate,FENCE.gate]){
-    const gp=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.19,1.5,8),gateM);
-    gp.position.set(gx,0.75,FENCE.cz-FENCE.hz); gp.castShadow=true; scene.add(gp);
-    staticAsset('torch',gx*1.6,FENCE.cz-FENCE.hz-1.2,0,1);
-  }
-  // 울타리 바깥 자연 배경 (나무/바위/눈언덕) — 안쪽에는 일절 배치하지 않음
-  const kinds=['pine1','pine2','ctree','rock','bush'];
-  let seed=7;
-  const rnd=()=>{ seed=(seed*16807)%2147483647; return seed/2147483647; };
-  for(let i=0;i<pts.length;i+=2){
-    const p=pts[i];
-    if(Math.abs(p.x)<6 && p.nz<-0.7) continue; // 게이트 앞은 뚫어줌
-    const d=2.6+rnd()*4.5;
-    const x=p.x+p.nx*d + (-p.nz)*(rnd()-0.5)*1.6;
-    const z=p.z+p.nz*d + (p.nx)*(rnd()-0.5)*1.6;
-    if(Math.hypot(x,z)>28.5) continue;
-    staticAsset(kinds[Math.floor(rnd()*kinds.length)], x, z, rnd()*6.28, 0.45+rnd()*0.25);
-    if(rnd()<0.3){ // 바깥에만 눈언덕
-      const d2=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),new THREE.MeshStandardMaterial({color:0xf2f5fd,roughness:1}));
-      const ss=1.8+rnd()*1.4; d2.scale.set(ss,ss*0.9,ss*0.32);
-      d2.position.set(x+(rnd()-0.5)*3,-0.15,z+(rnd()-0.5)*3); d2.receiveShadow=true; scene.add(d2);
-    }
-  }
-}
-// 모닥불 (절차적)
-function buildCampfire(x,z){
-  const g=new THREE.Group(); g.position.set(x,0,z);
-  const stoneM=new THREE.MeshStandardMaterial({color:0x8a8f9c,roughness:.9});
-  for(let i=0;i<7;i++){ const a=i/7*Math.PI*2;
-    const st=new THREE.Mesh(new THREE.IcosahedronGeometry(0.24,0),stoneM);
-    st.scale.y=0.7; st.position.set(Math.cos(a)*0.8,0.1,Math.sin(a)*0.8); st.castShadow=true; g.add(st); }
-  const logM=new THREE.MeshStandardMaterial({color:0x5a3a1e,roughness:.9});
-  for(let i=0;i<4;i++){ const a=i/4*Math.PI*2+0.4;
-    const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,1.1,6),logM);
-    lg.position.set(Math.cos(a)*0.2,0.3,Math.sin(a)*0.2); lg.rotation.set(0.9,a,0.5); lg.castShadow=true; g.add(lg); }
-  const flameM=new THREE.MeshStandardMaterial({color:0xff7a1a,emissive:0xff5a00,emissiveIntensity:2.4,roughness:.4});
-  const f1=new THREE.Mesh(new THREE.ConeGeometry(0.34,1.0,8),flameM); f1.position.y=0.85; g.add(f1);
-  const f2=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.6,8),new THREE.MeshStandardMaterial({color:0xffd23f,emissive:0xffc21a,emissiveIntensity:3,roughness:.4})); f2.position.y=0.95; g.add(f2);
-  const pl=new THREE.PointLight(0xff8a30,30,9,1.8); pl.position.set(0,1.4,0); g.add(pl);
-  g.userData.flicker=(t)=>{ const n=Math.sin(t*11)+Math.sin(t*17+1.3); f1.scale.setScalar(1+n*0.08); f2.scale.setScalar(1-n*0.12); pl.intensity=28+n*5; };
-  scene.add(g); return g;
+  // 가게 내부 우드 플로어 (4x4 타일)
+  for(let ix=0;ix<5;ix++) for(let iz=0;iz<4;iz++)
+    staticAsset('Wood_Floor', -8+ix*4, -6+iz*4, 0, 1, -0.06);
+  // 벽: 북쪽 + 양옆 (홍목), 남쪽은 거리로 개방
+  for(let i=0;i<10;i++) staticAsset('Red_Wood_Wall', -8.4+i*1.87, 9.6, 0, 0.5);
+  for(let i=0;i<8;i++){ staticAsset('Red_Wood_Wall', -9.6, -4.2+i*1.87, Math.PI/2, 0.5); staticAsset('Red_Wood_Wall', 10.6, -4.2+i*1.87, Math.PI/2, 0.5); }
+  staticAsset('Shoji_Wall', -9.6, 5.5, Math.PI/2, 0.5); staticAsset('Shoji_Wall', 10.6, 5.5, Math.PI/2, 0.5);
+  staticAsset('Wall_with_Shelves', -2.2, 9.55, 0, 0.5);
+  staticAsset('Japanese_Door', 2.0, 9.55, 0, 0.5);
+  // 입구: 토리이 + 포스트 랜턴 + 빨간 제등
+  staticAsset('Torii_Gate', 0, -10.6, 0, 0.55);
+  staticAsset('Post_Lantern', -2.6, -9.6, 0, 0.7); staticAsset('Post_Lantern', 2.6, -9.6, 0, 0.7);
+  staticAsset('Red_Lantern', -1.1, -10.6, 0, 1.2, 2.2); staticAsset('Red_Lantern', 1.1, -10.6, 0, 1.2, 2.2);
+  // 바깥 나무/바위 장식
+  staticAsset('pine1', -14, -7, 0.4, 1.1); staticAsset('pine2', 14.5, 5, 2.1, 1); staticAsset('ctree', -13.5, 12, 1.2, 0.9);
+  staticAsset('bush', 12.5, -8, 0, 1); staticAsset('rock', -12.5, -2.5, 0.7, 1); staticAsset('bush', -11.5, 16, 0, 1);
+  staticAsset('menu', 3.6, -8.6, -0.4, 1);
 }
 
-// ============================== 게임 오브젝트 ==============================
 const HUNT={pos:new THREE.Vector3(-8,0,2), stock:[], iv:CFG.huntInterval, t:0};
 const FIRE={pos:new THREE.Vector3(-2,0,2), raw:0, stew:0, cooking:0, ct:CFG.cookTime};
 const TABLE_TIERS0=[
@@ -272,46 +161,55 @@ const TABLES=[ {pos:new THREE.Vector3(6.5,0,-2), tier:0, custs:[], stew:0, group
                {pos:new THREE.Vector3(6.5,0,7),  tier:0, custs:[], stew:0, group:null} ];
 function seatCap(t){ return tierDef(t.tier).seats; }
 function seatPos(t,i){
-  const tier=tierDef(t.tier), n=tier.seats;
-  const a=-Math.PI/2 + i*(Math.PI*2/n), cr=1.5*tier.scale+0.35;
-  return new THREE.Vector3(t.pos.x+Math.cos(a)*cr, 0, t.pos.z+Math.sin(a)*cr);
+  const n=tierDef(t.tier).seats;
+  return new THREE.Vector3(t.pos.x+(i-(n-1)/2)*0.95, 0, t.pos.z+1.4);
 }
 let workers=[], pads=[], hero, campfire, custT=0, stockMeshes=[], stewMeshes=[], coinFx=[];
 
 function buildStations(){
-  // 사냥터
-  staticAsset('log',HUNT.pos.x-0.8,HUNT.pos.z+0.6,0.6,1);
-  staticAsset('stump',HUNT.pos.x+0.9,HUNT.pos.z-0.5,0.2,1);
-  staticAsset('steak',HUNT.pos.x,HUNT.pos.z+1.6,0.3,1);
-  // 모닥불 + 요리
-  campfire=buildCampfire(FIRE.pos.x,FIRE.pos.z);
-  staticAsset('counter',FIRE.pos.x+2.2,FIRE.pos.z+1.8,Math.PI,1);
-  staticAsset('pot',FIRE.pos.x+2.2,FIRE.pos.z+1.2,0,1);
-  // 식탁
+  // 식자재 트럭 (재료 공급처)
+  staticAsset('Sushi_Truck', HUNT.pos.x-0.5, HUNT.pos.z+0.5, Math.PI*0.55, 0.32);
+  // 주방: 조리 냄비 + 오븐 + 키친 플로어
+  campfire=buildKitchen(FIRE.pos.x,FIRE.pos.z);
+  staticAsset('Oven', FIRE.pos.x-2.8, FIRE.pos.z+1.8, Math.PI*0.5, 0.55);
+  staticAsset('Kitchen', FIRE.pos.x, FIRE.pos.z+2.8, 0, 0.5, 0.05);
+  // 카운터 좌석
   TABLES.forEach(t=>buildTable(t));
   staticAsset('coins',3.5,1.5,0,0.8);
-  staticAsset('barrel',-4.2,4.6,0.5,1);
-  staticAsset('menu',-0.5,6.8,-0.5,1);
-  // 장작 더미 (모닥불 옆)
-  staticAsset('log',FIRE.pos.x-1.6,FIRE.pos.z+1.4,0.3,0.9);
-  staticAsset('log',FIRE.pos.x-1.9,FIRE.pos.z+1.7,1.2,0.9);
+  staticAsset('Chukaman',-8.3,6.5,0.3,1);
+  staticAsset('Dango',-8.0,7.4,-0.3,1);
+}
+function buildKitchen(x,z){
+  const g=new THREE.Group(); g.position.set(x,0,z);
+  const pot=cloneAsset('Large_Pot_Filled'); pot.scale.setScalar(0.85); g.add(pot);
+  const pl=new THREE.PointLight(0xffa050,22,8,1.8); pl.position.set(0,1.8,0); g.add(pl);
+  g.userData.flicker=(t)=>{ const n=Math.sin(t*9)+Math.sin(t*13+1.3); pl.intensity=20+n*3; };
+  scene.add(g); return g;
 }
 function buildTable(t){
   if(t.group){ scene.remove(t.group); }
   const tier=tierDef(t.tier);
+  const n=tier.seats, sp=0.95;
   const g=new THREE.Group(); g.position.copy(t.pos);
-  const rug=new THREE.Mesh(new THREE.CircleGeometry(tier.rug,40),new THREE.MeshStandardMaterial({color:tier.color,roughness:1}));
-  rug.rotation.x=-Math.PI/2; rug.position.y=0.015; rug.receiveShadow=true; g.add(rug);
-  const tb=cloneAsset('table'); tb.scale.setScalar(tier.scale); g.add(tb);
-  for(let i=0;i<tier.seats;i++){
-    const a=-Math.PI/2 + i*(Math.PI*2/tier.seats), cr=1.5*tier.scale+0.35;
-    const ch=cloneAsset('chair'); ch.position.set(Math.cos(a)*cr,0,Math.sin(a)*cr); ch.rotation.y=a+Math.PI; g.add(ch);
+  const rug=new THREE.Mesh(new THREE.BoxGeometry(n*sp+1.8,0.04,3.6),new THREE.MeshStandardMaterial({color:tier.color,roughness:1}));
+  rug.position.y=0.02; rug.receiveShadow=true; g.add(rug);
+  const cw=n*sp+0.7;
+  const ct=cloneAsset('Counter_Straight'); ct.scale.set(cw/4,0.62,0.7); g.add(ct);
+  for(let i=0;i<n;i++){
+    const st=cloneAsset('Stool'); st.scale.setScalar(0.75); st.position.set((i-(n-1)/2)*sp,0,1.4); g.add(st);
   }
-  if(t.tier>=2){ const deco=cloneAsset('pot'); deco.scale.setScalar(0.5); deco.position.set(0,1.05*tier.scale,0); g.add(deco); }
+  // 이치란식 1인석 칸막이
+  const divM=new THREE.MeshStandardMaterial({color:0x6b4426,roughness:.9});
+  for(let i=0;i<n-1;i++){
+    const d=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.8,1.05),divM);
+    d.position.set((i-(n-1)/2+0.5)*sp,1.19+0.4,0.5); d.castShadow=true; g.add(d);
+  }
+  const hl=cloneAsset('Hanging_Lantern'); hl.position.set(0,2.7,0.3); g.add(hl);
+  if(t.tier>=2){ const r=cloneAsset('Ramen'); r.scale.setScalar(0.6); r.position.set(0,1.19,0); g.add(r); }
   scene.add(g); t.group=g;
-  while(t.custs.length<tier.seats) t.custs.push(null);
-  t.custs=t.custs.slice(0,tier.seats);
-  t.custs.forEach((c,i)=>{ if(c){ const sp=seatPos(t,i); c.rig.obj.position.set(sp.x,0,sp.z); } });
+  while(t.custs.length<n) t.custs.push(null);
+  t.custs=t.custs.slice(0,n);
+  t.custs.forEach((c,i)=>{ if(c){ const sp2=seatPos(t,i); c.rig.obj.position.set(sp2.x,0,sp2.z); } });
 }
 // 발판
 function padIcon(k){
@@ -324,8 +222,8 @@ function padIcon(k){
   }
   if(k==='table'){
     const grp=new THREE.Group();
-    const t=cloneAsset('table'); t.scale.setScalar(0.55); grp.add(t);
-    const ch=cloneAsset('chair'); ch.scale.setScalar(0.55); ch.position.set(0.9,0,0.6); ch.rotation.y=-0.7; grp.add(ch);
+    const t=cloneAsset('Counter_Straight'); t.scale.set(0.16,0.3,0.35); grp.add(t);
+    const ch=cloneAsset('Stool'); ch.scale.setScalar(0.4); ch.position.set(0.75,0,0.35); grp.add(ch);
     return grp;
   }
   if(k==='hunter'){ const m=cloneAsset('Rogue'); m.scale.setScalar(0.62); return m; }
@@ -427,7 +325,7 @@ function dist(a,b){ return Math.hypot(a.x-b.x,a.z-b.z); }
 
 // 아이템 표시 (들고다니는 고기/스튜)
 function carryMesh(kind){
-  return cloneAsset(kind==='meat'?'steak':'pot');
+  return cloneAsset(kind==='meat'?'steak':'Ramen');
 }
 function updateHeroCarry(){
   hero.carryObjs.forEach(m=>hero.rig.obj.remove(m)); hero.carryObjs=[];
@@ -458,7 +356,7 @@ function refreshStock(){
 function refreshStew(){
   stewMeshes.forEach(m=>scene.remove(m)); stewMeshes=[];
   for(let i=0;i<FIRE.stew;i++){
-    const m=cloneAsset('pot'); m.scale.setScalar(0.55);
+    const m=cloneAsset('Ramen'); m.scale.setScalar(0.5);
     m.position.set(FIRE.pos.x+1.4+i*0.7, 0, FIRE.pos.z-1.2); scene.add(m); stewMeshes.push(m);
   }
 }
@@ -578,7 +476,7 @@ function updateCustomers(dt){
       else { d.normalize(); o.position.addScaledVector(d,CFG.custSpeed*dt); o.rotation.y=Math.atan2(d.x,d.z); playAnim(c.rig,'Walking_A'); }
     }
     if(c.state==='wait'){
-      if(!c.bubble){ c.bubble=textSprite('🍲',{size:40,bg:'rgba(255,255,255,.85)'}); c.bubble.position.copy(seatPos(c.table,c.seatIdx)).add(new THREE.Vector3(0,2.3,0)); scene.add(c.bubble); }
+      if(!c.bubble){ c.bubble=textSprite('🍜',{size:40,bg:'rgba(255,255,255,.85)'}); c.bubble.position.copy(seatPos(c.table,c.seatIdx)).add(new THREE.Vector3(0,2.3,0)); scene.add(c.bubble); }
       c.bubble.position.y=2.3+Math.sin(clockT*3)*0.1;
     } else if(c.bubble){ scene.remove(c.bubble); c.bubble=null; }
     if(c.state==='toSeat'){
@@ -636,20 +534,6 @@ function offlineSettle(){
 }
 
 // 눈 입자
-let snow;
-function buildSnow(){
-  const N=700, pos=new Float32Array(N*3);
-  for(let i=0;i<N;i++){ pos[i*3]=(Math.random()-0.5)*80; pos[i*3+1]=Math.random()*18; pos[i*3+2]=(Math.random()-0.5)*80; }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  snow=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:0.14,transparent:true,opacity:0.85,sizeAttenuation:true}));
-  scene.add(snow);
-}
-function updateSnow(dt){
-  const p=snow.geometry.attributes.position;
-  for(let i=0;i<p.count;i++){ let y=p.getY(i)-dt*1.6; if(y<0)y=18; p.setY(i,y); p.setX(i,p.getX(i)+Math.sin(clockT*0.8+i)*dt*0.25); }
-  p.needsUpdate=true;
-}
-
 // ============================== 메인 루프 ==============================
 let clockT=0, lastTs=0, saveT=0;
 function loop(ts){
@@ -664,7 +548,6 @@ function loop(ts){
   pads.forEach(g=>{ if(g.userData.icon){ g.userData.icon.position.y=1.7+Math.sin(clockT*2.6+g.position.x)*0.16; g.userData.icon.rotation.y+=dt*0.9; } });
   hero.carryObjs.forEach((m,i)=>m.position.y=2.1+i*0.42+Math.sin(clockT*4)*0.08);
   workers.forEach(w=>{ if(w.carryObj) w.carryObj.position.y=2.4+Math.sin(clockT*4+1)*0.12; });
-  updateSnow(dt);
   [hero.rig,...workers.map(w=>w.rig),...customers.map(c=>c.rig)].forEach(r=>r.mixer.update(dt));
   for(let i=coinFx.length-1;i>=0;i--){ const f=coinFx[i]; f.t+=dt; f.m.position.y+=dt*(f.isText?1.2:2); if(f.m.material){f.m.material.opacity=Math.max(0,0.9-f.t);} if(!f.isText)f.m.scale.setScalar(1+f.t*2); if(f.t>0.9){scene.remove(f.m);coinFx.splice(i,1);} }
   saveT+=dt; if(saveT>3){saveT=0;save();}
@@ -674,7 +557,7 @@ function loop(ts){
 
 // ============================== 시작 ==============================
 loadAll().then(()=>{
-  buildWorld(); buildStations(); buildSnow();
+  buildWorld(); buildStations();
   hero={rig:makeRig('Rogue_Hooded',0,-1.5,0), carry:null, carryObjs:[], dropCd:0};
   // 저장 복원 (레벨제)
   if(S.lv.table>0){ TABLES.forEach(t=>{ t.tier=S.lv.table; buildTable(t); }); }
