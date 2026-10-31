@@ -531,7 +531,7 @@ function loop(ts){
 // ============================== 시작 ==============================
 loadAll().then(()=>{
   buildWorld(); buildStations(); buildSnow();
-  hero={rig:makeRig('Rogue_Hooded',0,-4,0), carry:null, carryObjs:[]};
+  hero={rig:makeRig('Rogue_Hooded',0,-1.5,0), carry:null, carryObjs:[]};
   // 저장 복원 (레벨제)
   for(let i=1;i<=(S.lv.table||0);i++) buildTable(TABLES[i]);
   for(let i=0;i<(S.lv.worker||0);i++) hireWorker();
