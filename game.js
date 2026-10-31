@@ -484,7 +484,7 @@ function queueSlot(k){ return new THREE.Vector3(QA.x+QD.x*1.7*k, 0, QA.z+QD.z*1.
 function spawnCustomer(){
   const kinds=['Knight','Barbarian','Mage','Rogue'];
   const rig=makeRig(kinds[Math.floor(Math.random()*kinds.length)], ENTR.x+(Math.random()-0.5)*2, ENTR.z, 0);
-  const c={rig, state:'toQueue', t:0, table:null, pay:0, wp:[new THREE.Vector3(0,0,-8)]};
+  const c={rig, state:'toQueue', t:0, table:null, pay:0, wp:[]};
   customers.push(c); queue.push(c);
 }
 function walkWp(c,dt){
@@ -551,7 +551,7 @@ function updateCustomers(dt){
         if(c.table){ c.table.custs[c.seatIdx]=null; c.table=null; c.seatIdx=null; }  // 일어나는 순간 좌석 해제 → 다음 손님 즉시 배정
         c.state='leave'; playAnim(c.rig,'Cheer');
         c.cheerT=0;
-        c.wp=[new THREE.Vector3(c.sx!=null?c.sx:0,0,3.5), new THREE.Vector3(0,0,-8)];
+        c.wp=[new THREE.Vector3(c.sx!=null?c.sx:0,0,3.5), new THREE.Vector3(2,0,3.5), new THREE.Vector3(2,0,-6), new THREE.Vector3(0,0,-8)];
       }
     }
     else if(c.state==='leave'){
