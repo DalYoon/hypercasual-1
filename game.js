@@ -553,7 +553,12 @@ function spawnCustomer(){
 function updateCustomers(dt){
   custT+=dt;
   // 수요는 항상 넘침: 줄이 차지 않았으면 계속 도착
-  if(custT>=CFG.custSpawn && queue.length<CFG.queueMax && customers.length<24){
+  // 수요 스케일: 좌석이 늘수록 손님이 더 자주, 더 많이 옴
+  const seats=TABLES.reduce((a,t)=>a+seatCap(t),0);
+  const spawnIv=Math.max(0.25, CFG.custSpawn*4/seats);
+  const qmax=CFG.queueMax+Math.floor(seats/2);
+  const cmax=Math.min(60, seats+qmax+6);
+  if(custT>=spawnIv && queue.length<qmax && customers.length<cmax){
     custT=0; spawnCustomer();
   }
   // 빈 좌석이 있으면 줄 맨 앞 손님 착석
