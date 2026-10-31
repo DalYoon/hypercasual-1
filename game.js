@@ -450,19 +450,33 @@ function tryHeroPickupDrop(){
     const n=Math.min(hero.carry.n, CFG.stewMax-FIRE.raw); FIRE.raw+=n; hero.carry.n-=n;
     if(hero.carry.n<=0)hero.carry=null;
     updateHeroCarry(); pop(FIRE.pos,0xff8a30); sfx.drop();
-  } else if(hero.carry && hero.carry.kind==='stew'){
-    for(const t of TABLES){ if(t.built && t.stew<2 && dist(hp,t.pos)<2.0){
-      const n=Math.min(hero.carry.n,2-t.stew); t.stew+=n; hero.carry.n-=n;
+  } else if(hero.carry && hero.carry.kind==='stew' && hero.dropCd<=0){
+    let best=null, bd=1.6;
+    for(const t of TABLES){ if(t.built && t.stew<2){ const d=dist(hp,t.pos); if(d<bd){ bd=d; best=t; } } }
+    if(best){
+      const n=Math.min(hero.carry.n,2-best.stew); best.stew+=n; hero.carry.n-=n;
       if(hero.carry.n<=0)hero.carry=null;
-      updateHeroCarry(); pop(t.pos,0x9fdf7a); sfx.drop(); break; } }
+      updateHeroCarry(); pop(best.pos,0x9fdf7a); sfx.drop(); hero.dropCd=0.45;
+    }
   }
 }
 // 일꾼 AI
+function pickServeTable(){
+  let best=null,bs=1e9;
+  for(const t of TABLES){
+    if(!t.built||t.stew>=2) continue;
+    const waiting=(t.cust&&t.cust.state==='wait')?0:1;
+    const score=waiting*100+t.stew*10+TABLES.indexOf(t);
+    if(score<bs){ bs=score; best=t; }
+  }
+  return best;
+}
 function updateWorker(w,dt){
   const o=w.rig.obj;
   const go=(v)=>{ w.target.copy(v); };
   if(w.state==='idle'){
-    if(FIRE.stew>0 && TABLES.some(t=>t.built&&t.stew<2)) { w.state='toStew'; }
+    if(w.carry==='stew' && TABLES.some(t=>t.built&&t.stew<2)) { w.state='toTable'; }
+    else if(FIRE.stew>0 && TABLES.some(t=>t.built&&t.stew<2)) { w.state='toStew'; }
     else if(HUNT.stock.length>0 && FIRE.raw<CFG.stewMax) { w.state='toMeat'; }
     else playAnim(w.rig,'Idle');
   }
@@ -470,9 +484,9 @@ function updateWorker(w,dt){
   else if(w.state==='toMeat'){ go(HUNT.pos); if(step(w,dt)){ if(HUNT.stock.length>0){HUNT.stock.pop(); setWorkerCarry(w,'meat'); playAnim(w.rig,'PickUp'); refreshStock(); w.state='toFire';} else w.state='idle'; } }
   else if(w.state==='toFire'){ go(FIRE.pos); if(step(w,dt)){ FIRE.raw++; setWorkerCarry(w,null); pop(FIRE.pos,0xff8a30); w.state='idle'; } }
   else if(w.state==='toTable'){
-    const t=TABLES.find(t=>t.built&&t.stew<2);
+    const t=pickServeTable();
     if(!t){ w.state='idle'; }
-    else { go(t.pos); if(step(w,dt)){ t.stew++; setWorkerCarry(w,null); pop(t.pos,0x9fdf7a); sfx.serve(); w.state='idle'; } }
+    else { go(t.pos); if(step(w,dt)){ if(t.stew<2){ t.stew++; setWorkerCarry(w,null); pop(t.pos,0x9fdf7a); sfx.serve(); } w.state='idle'; } }
   }
 }
 function setWorkerCarry(w,kind){
@@ -599,6 +613,7 @@ let clockT=0, lastTs=0, saveT=0;
 function loop(ts){
   requestAnimationFrame(loop);
   const dt=Math.min((ts-lastTs)/1000,0.05)||0.016; lastTs=ts; clockT+=dt;
+  if(hero.dropCd>0)hero.dropCd-=dt;
   updateHero(dt); updateStations(dt); updatePads(dt);
   workers.forEach(w=>updateWorker(w,dt));
   updateCustomers(dt);
@@ -618,7 +633,7 @@ function loop(ts){
 // ============================== 시작 ==============================
 loadAll().then(()=>{
   buildWorld(); buildStations(); buildSnow();
-  hero={rig:makeRig('Rogue_Hooded',0,-1.5,0), carry:null, carryObjs:[]};
+  hero={rig:makeRig('Rogue_Hooded',0,-1.5,0), carry:null, carryObjs:[], dropCd:0};
   // 저장 복원 (레벨제)
   for(let i=1;i<=(S.lv.table||0);i++) buildTable(TABLES[i]);
   for(let i=0;i<(S.lv.worker||0);i++) hireWorker();
