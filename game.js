@@ -11,7 +11,7 @@ const CFG = {
   offlineCapMin: 120,
 };
 const PAD_DEFS=[
-  { id:'table',  label:'식탁 추가',  pos:[4.5,-3.0],  costs:[120,300,450,700,1000,1400,1900], icon:'table' },
+  { id:'table',  label:'식탁 업그레이드',  pos:[4.5,-3.0],  costs:[120,300,600], icon:'table' },
   { id:'worker', label:'일꾼 고용',  pos:[-3.0,-4.0],  costs:[50,220,380,600,850],              icon:'worker' },
   { id:'hunt',   label:'사냥 가속',  pos:[-5.5,-1.0], costs:[80,200,400,700],                  icon:'steak' },
   { id:'fire',   label:'모닥불 강화', pos:[2.0,5.2],  costs:[100,250,500],                     icon:'pot' },
@@ -33,6 +33,7 @@ if(!S.lv){
          hunt:(u.hunt2?1:0)+(u.hunt3?1:0), fire:(u.fire2?1:0), bag:(u.bag1?1:0) };
   delete S.unlocked; save();
 }
+if(!S.lvT){ S.lv.table=Math.min(3,Math.floor((S.lv.table||0)/2)); S.lvT=true; save(); }
 function fmt(n){ return n>=1000 ? (n/1000).toFixed(1)+'k' : Math.floor(n); }
 
 // ============================== three 기본 ==============================
@@ -253,7 +254,20 @@ function buildCampfire(x,z){
 // ============================== 게임 오브젝트 ==============================
 const HUNT={pos:new THREE.Vector3(-8,0,2), stock:[], iv:CFG.huntInterval, t:0};
 const FIRE={pos:new THREE.Vector3(-2,0,2), raw:0, stew:0, cooking:0, ct:CFG.cookTime};
-const TABLES=[]; for(let i=0;i<8;i++) TABLES.push({pos:new THREE.Vector3(6.5,0,i*3.4), built:i===0, cust:null, stew:0, eating:0});
+const TABLE_TIERS=[
+  {seats:2, scale:0.85, rug:2.4, color:0xd8b08c},
+  {seats:4, scale:1.05, rug:3.0, color:0xd09a70},
+  {seats:6, scale:1.25, rug:3.5, color:0xc47a58},
+  {seats:8, scale:1.45, rug:4.0, color:0xb45c48},
+];
+const TABLES=[ {pos:new THREE.Vector3(6.5,0,-2), tier:0, custs:[], stew:0, group:null},
+               {pos:new THREE.Vector3(6.5,0,7),  tier:0, custs:[], stew:0, group:null} ];
+function seatCap(t){ return TABLE_TIERS[t.tier].seats; }
+function seatPos(t,i){
+  const tier=TABLE_TIERS[t.tier], n=tier.seats;
+  const a=-Math.PI/2 + i*(Math.PI*2/n), cr=1.5*tier.scale+0.35;
+  return new THREE.Vector3(t.pos.x+Math.cos(a)*cr, 0, t.pos.z+Math.sin(a)*cr);
+}
 let workers=[], pads=[], hero, campfire, custT=0, stockMeshes=[], stewMeshes=[], coinFx=[];
 
 function buildStations(){
@@ -266,7 +280,7 @@ function buildStations(){
   staticAsset('counter',FIRE.pos.x+2.2,FIRE.pos.z+1.8,Math.PI,1);
   staticAsset('pot',FIRE.pos.x+2.2,FIRE.pos.z+1.2,0,1);
   // 식탁
-  TABLES.forEach((t,i)=>{ if(t.built) buildTable(t); });
+  TABLES.forEach(t=>buildTable(t));
   staticAsset('coins',3.5,1.5,0,0.8);
   staticAsset('barrel',-4.2,4.6,0.5,1);
   staticAsset('menu',-0.5,6.8,-0.5,1);
@@ -275,12 +289,21 @@ function buildStations(){
   staticAsset('log',FIRE.pos.x-1.9,FIRE.pos.z+1.7,1.2,0.9);
 }
 function buildTable(t){
-  t.built=true;
-  const rug=new THREE.Mesh(new THREE.CircleGeometry(2.3,36),new THREE.MeshStandardMaterial({color:0xd8b08c,roughness:1}));
-  rug.rotation.x=-Math.PI/2; rug.position.set(t.pos.x,0.015,t.pos.z); rug.receiveShadow=true; scene.add(rug);
-  staticAsset('table',t.pos.x,t.pos.z,Math.random()*3,1);
-  staticAsset('chair',t.pos.x-1.4,t.pos.z-1.0,2.2,1);
-  staticAsset('chair',t.pos.x+1.4,t.pos.z+1.0,-0.7,1);
+  if(t.group){ scene.remove(t.group); }
+  const tier=TABLE_TIERS[t.tier];
+  const g=new THREE.Group(); g.position.copy(t.pos);
+  const rug=new THREE.Mesh(new THREE.CircleGeometry(tier.rug,40),new THREE.MeshStandardMaterial({color:tier.color,roughness:1}));
+  rug.rotation.x=-Math.PI/2; rug.position.y=0.015; rug.receiveShadow=true; g.add(rug);
+  const tb=cloneAsset('table'); tb.scale.setScalar(tier.scale); g.add(tb);
+  for(let i=0;i<tier.seats;i++){
+    const a=-Math.PI/2 + i*(Math.PI*2/tier.seats), cr=1.5*tier.scale+0.35;
+    const ch=cloneAsset('chair'); ch.position.set(Math.cos(a)*cr,0,Math.sin(a)*cr); ch.rotation.y=a+Math.PI; g.add(ch);
+  }
+  if(t.tier>=2){ const deco=cloneAsset('pot'); deco.scale.setScalar(0.5); deco.position.set(0,1.05*tier.scale,0); g.add(deco); }
+  scene.add(g); t.group=g;
+  while(t.custs.length<tier.seats) t.custs.push(null);
+  t.custs=t.custs.slice(0,tier.seats);
+  t.custs.forEach((c,i)=>{ if(c){ const sp=seatPos(t,i); c.rig.obj.position.set(sp.x,0,sp.z); } });
 }
 // 발판
 function padIcon(k){
@@ -315,7 +338,7 @@ function makePad(def){
   scene.add(g); pads.push(g);
 }
 function applyPadLevel(id,lv){
-  if(id==='table') buildTable(TABLES[lv]);
+  if(id==='table'){ TABLES.forEach(t=>{ t.tier=Math.min(lv,TABLE_TIERS.length-1); buildTable(t); }); }
   if(id==='worker') hireWorker();
   if(id==='hunt') HUNT.iv=HUNT_IV[lv];
   if(id==='fire'){ FIRE.ct=FIRE_CT[lv]; campfire.scale.setScalar(1+0.18*lv); }
@@ -451,10 +474,10 @@ function tryHeroPickupDrop(){
     if(hero.carry.n<=0)hero.carry=null;
     updateHeroCarry(); pop(FIRE.pos,0xff8a30); sfx.drop();
   } else if(hero.carry && hero.carry.kind==='stew' && hero.dropCd<=0){
-    let best=null, bd=1.6;
-    for(const t of TABLES){ if(t.built && t.stew<2){ const d=dist(hp,t.pos); if(d<bd){ bd=d; best=t; } } }
+    let best=null, bd=2.2;
+    for(const t of TABLES){ if(t.stew<seatCap(t)){ const d=dist(hp,t.pos); if(d<bd){ bd=d; best=t; } } }
     if(best){
-      const n=Math.min(hero.carry.n,2-best.stew); best.stew+=n; hero.carry.n-=n;
+      const n=Math.min(hero.carry.n,seatCap(best)-best.stew); best.stew+=n; hero.carry.n-=n;
       if(hero.carry.n<=0)hero.carry=null;
       updateHeroCarry(); pop(best.pos,0x9fdf7a); sfx.drop(); hero.dropCd=0.45;
     }
@@ -464,9 +487,9 @@ function tryHeroPickupDrop(){
 function pickServeTable(){
   let best=null,bs=1e9;
   for(const t of TABLES){
-    if(!t.built||t.stew>=2) continue;
-    const waiting=(t.cust&&t.cust.state==='wait')?0:1;
-    const score=waiting*100+t.stew*10+TABLES.indexOf(t);
+    if(t.stew>=seatCap(t)) continue;
+    const waiting=t.custs.filter(c=>c&&c.state==='wait').length;
+    const score=-waiting*100+t.stew*10+TABLES.indexOf(t);
     if(score<bs){ bs=score; best=t; }
   }
   return best;
@@ -475,8 +498,8 @@ function updateWorker(w,dt){
   const o=w.rig.obj;
   const go=(v)=>{ w.target.copy(v); };
   if(w.state==='idle'){
-    if(w.carry==='stew' && TABLES.some(t=>t.built&&t.stew<2)) { w.state='toTable'; }
-    else if(FIRE.stew>0 && TABLES.some(t=>t.built&&t.stew<2)) { w.state='toStew'; }
+    if(w.carry==='stew' && TABLES.some(t=>t.stew<seatCap(t))) { w.state='toTable'; }
+    else if(FIRE.stew>0 && TABLES.some(t=>t.stew<seatCap(t))) { w.state='toStew'; }
     else if(HUNT.stock.length>0 && FIRE.raw<CFG.stewMax) { w.state='toMeat'; }
     else playAnim(w.rig,'Idle');
   }
@@ -486,7 +509,7 @@ function updateWorker(w,dt){
   else if(w.state==='toTable'){
     const t=pickServeTable();
     if(!t){ w.state='idle'; }
-    else { go(t.pos); if(step(w,dt)){ if(t.stew<2){ t.stew++; setWorkerCarry(w,null); pop(t.pos,0x9fdf7a); sfx.serve(); } w.state='idle'; } }
+    else { go(t.pos); if(step(w,dt)){ if(t.stew<seatCap(t)){ t.stew++; setWorkerCarry(w,null); pop(t.pos,0x9fdf7a); sfx.serve(); } w.state='idle'; } }
   }
 }
 function setWorkerCarry(w,kind){
@@ -521,11 +544,13 @@ function updateCustomers(dt){
   if(custT>=CFG.custSpawn && queue.length<CFG.queueMax && customers.length<24){
     custT=0; spawnCustomer();
   }
-  // 빈 식탁이 있으면 줄 맨 앞 손님 착석
-  const free=TABLES.filter(t=>t.built&&!t.cust);
-  while(free.length>0 && queue.length>0){
-    const c=queue.shift(); const t=free.shift();
-    t.cust=c; c.table=t; c.state='toSeat';
+  // 빈 좌석이 있으면 줄 맨 앞 손님 착석
+  for(const t of TABLES){
+    for(let i=0;i<t.custs.length;i++){
+      if(!t.custs[i] && queue.length>0){
+        const c=queue.shift(); t.custs[i]=c; c.table=t; c.seatIdx=i; c.state='toSeat';
+      }
+    }
   }
   for(let i=customers.length-1;i>=0;i--){
     const c=customers[i]; const o=c.rig.obj;
@@ -536,11 +561,11 @@ function updateCustomers(dt){
       else { d.normalize(); o.position.addScaledVector(d,CFG.custSpeed*dt); o.rotation.y=Math.atan2(d.x,d.z); playAnim(c.rig,'Walking_A'); }
     }
     if(c.state==='wait'){
-      if(!c.bubble){ c.bubble=textSprite('🍲',{size:40,bg:'rgba(255,255,255,.85)'}); c.bubble.position.copy(c.table.pos).add(new THREE.Vector3(-1.4,2.3,-1.0)); scene.add(c.bubble); }
+      if(!c.bubble){ c.bubble=textSprite('🍲',{size:40,bg:'rgba(255,255,255,.85)'}); c.bubble.position.copy(seatPos(c.table,c.seatIdx)).add(new THREE.Vector3(0,2.3,0)); scene.add(c.bubble); }
       c.bubble.position.y=2.3+Math.sin(clockT*3)*0.1;
     } else if(c.bubble){ scene.remove(c.bubble); c.bubble=null; }
     if(c.state==='toSeat'){
-      const sp=new THREE.Vector3(c.table.pos.x-1.4,0,c.table.pos.z-1.0);
+      const sp=seatPos(c.table,c.seatIdx);
       const d=new THREE.Vector3().subVectors(sp,o.position); d.y=0;
       if(d.length()<0.3){ c.state='wait'; playAnim(c.rig,'Sit_Chair_Idle'); o.rotation.y=Math.atan2(c.table.pos.x-o.position.x,c.table.pos.z-o.position.z); }
       else { d.normalize(); o.position.addScaledVector(d,CFG.custSpeed*dt); o.rotation.y=Math.atan2(d.x,d.z); playAnim(c.rig,'Walking_A'); }
@@ -555,7 +580,7 @@ function updateCustomers(dt){
         S.coins+=gain; S.served++; save(); pop(c.table.pos,0xffd34d);
         const ft=textSprite(`+${gain} 🪙`,{size:46,fg:'#ffd34d'}); ft.position.copy(c.table.pos).add(new THREE.Vector3(0,2.2,0)); scene.add(ft);
         coinFx.push({m:ft,t:0,isText:true});
-        if(c.table){ c.table.cust=null; c.table=null; }  // 일어나는 순간 테이블 해제 → 다음 손님 즉시 배정
+        if(c.table){ c.table.custs[c.seatIdx]=null; c.table=null; c.seatIdx=null; }  // 일어나는 순간 좌석 해제 → 다음 손님 즉시 배정
         c.state='leave'; playAnim(c.rig,'Cheer');
         c.cheerT=0;
       }
@@ -564,7 +589,7 @@ function updateCustomers(dt){
       c.cheerT=(c.cheerT||0)+dt;
       if(c.cheerT<0.9) continue;
       const d=new THREE.Vector3().subVectors(EXIT,o.position); d.y=0;
-      if(d.length()<0.8){ if(c.table) c.table.cust=null; const qi=queue.indexOf(c); if(qi>=0)queue.splice(qi,1); scene.remove(o); customers.splice(i,1); continue; }
+      if(d.length()<0.8){ if(c.table){ c.table.custs[c.seatIdx]=null; } const qi=queue.indexOf(c); if(qi>=0)queue.splice(qi,1); scene.remove(o); customers.splice(i,1); continue; }
       d.normalize(); o.position.addScaledVector(d,CFG.custSpeed*dt); o.rotation.y=Math.atan2(d.x,d.z); playAnim(c.rig,'Walking_A');
     }
   }
@@ -588,8 +613,8 @@ function updatePads(dt){
 function offlineSettle(){
   const mins=(Date.now()-(S.ts||Date.now()))/60000;
   if(mins<3) return;
-  const tables=TABLES.filter(t=>t.built).length;
-  const gain=Math.floor(Math.min(mins,CFG.offlineCapMin)*tables*4.0);
+  const seats=TABLES.reduce((a,t)=>a+seatCap(t),0);
+  const gain=Math.floor(Math.min(mins,CFG.offlineCapMin)*seats*1.0);
   if(gain>0){ S.coins+=gain; save(); setTimeout(()=>toast(`오프라인 수익 +${gain} 🪙`),600); }
 }
 
@@ -635,7 +660,7 @@ loadAll().then(()=>{
   buildWorld(); buildStations(); buildSnow();
   hero={rig:makeRig('Rogue_Hooded',0,-1.5,0), carry:null, carryObjs:[], dropCd:0};
   // 저장 복원 (레벨제)
-  for(let i=1;i<=(S.lv.table||0);i++) buildTable(TABLES[i]);
+  if(S.lv.table>0){ TABLES.forEach(t=>{ t.tier=Math.min(S.lv.table,TABLE_TIERS.length-1); buildTable(t); }); }
   for(let i=0;i<(S.lv.worker||0);i++) hireWorker();
   if(S.lv.hunt) HUNT.iv=HUNT_IV[S.lv.hunt];
   if(S.lv.fire){ FIRE.ct=FIRE_CT[S.lv.fire]; campfire.scale.setScalar(1+0.18*S.lv.fire); }
