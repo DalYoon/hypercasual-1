@@ -118,41 +118,118 @@ function makeRig(name,x,z,ry=0){
 // ============================== 월드 꾸미기 ==============================
 function buildWorld(){
   // 눈 지형
-  const geo=new THREE.CylinderGeometry(26,26.8,1.2,64);
+  const geo=new THREE.CylinderGeometry(30,30.8,1.2,64);
   const mat=new THREE.MeshStandardMaterial({color:0xe9eefb,roughness:0.95});
   const ground=new THREE.Mesh(geo,mat); ground.position.y=-0.6; ground.receiveShadow=true; scene.add(ground);
-  const driftM=new THREE.MeshStandardMaterial({color:0xf2f5fd,roughness:1});
-  [[-8,5,2.2],[6,-6,2.6],[-4,-8,1.8],[9,6,1.9],[3,9,1.5],[-14,-12,2.8],[15,-10,2.4],[-16,10,2.6],[12,14,2.2],[19,5,2.0],[-19,-3,2.3],[5,-17,2.5],[-6,17,2.1]].forEach(([x,z,s])=>{
-    const d=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),driftM);
-    d.scale.set(s,s*0.9,s*0.32); d.position.set(x,-0.15,z); d.receiveShadow=true; scene.add(d);
-  });
-  // 얼음 패치
+  // 얼음 패치 (바닥 무늬만, 안쪽 최소)
   const iceM=new THREE.MeshStandardMaterial({color:0xd3e4f7,roughness:0.35});
-  [[-5,-6,2.6],[-14,8,2.0],[9,-5,1.6],[-9.5,-1,1.8],[-15,-8,3.0],[13,11,2.4],[-13,13,2.2],[18,-6,2.0],[3,-14,2.6],[-18,4,2.0]].forEach(([x,z,r],i)=>{
+  [[-6,-7,2.4],[-15,3,2.6],[16,-4,2.2],[4,-24,2.6],[-17,14,2.4],[18,12,2.2]].forEach(([x,z,r])=>{
     const ice=new THREE.Mesh(new THREE.CircleGeometry(r,24),iceM);
     ice.rotation.x=-Math.PI/2; ice.position.set(x,0.012,z); ice.receiveShadow=true; scene.add(ice);
   });
-  // 가장자리 나무/바위
-  const ring=[[-12,-8,'pine1',.55],[-13,-1,'pine2',.6],[-11,6,'pine1',.5],[-6,11,'pine2',.55],[2,12,'pine1',.6],[9,10,'ctree',.55],[12,4,'pine2',.5],[13,-4,'pine1',.55],[8,-11,'pine2',.6],[0,-13,'pine1',.5],[-8,-11,'ctree',.55]];
-  ring.forEach(([x,z,t,s],i)=>staticAsset(t,x,z,i*1.7,s));
-  // 외곽 링 (넓어진 맵)
-  const outer=[];
-  const kinds=['pine1','pine2','ctree'];
-  for(let i=0;i<26;i++){
-    const a=i/26*Math.PI*2+0.13;
-    const r=22.5+Math.sin(i*2.7)*1.6;
-    outer.push([Math.cos(a)*r,Math.sin(a)*r,kinds[i%3],0.5+(i%4)*0.08]);
+  // 마을 안 조명 토치만 유지
+  staticAsset('torch',-3.4,-1.6,0,1); staticAsset('torch',4.2,-3.2,0,1); staticAsset('torch',-1.5,4.8,0,1); staticAsset('torch',3.5,8,0,1);
+  buildFence();
+}
+// ============================== 울타리 마을 ==============================
+// 둥근 사각형 마을 경계: x[-11.5,11.5], z[-21.5,27.5], 코너 r=5 / 남쪽 게이트 |x|<2.4
+const FENCE={hx:11.5, cz:3, hz:24.5, r:5, gate:2.4};
+function fencePerimeter(){
+  // {x,z,tx,tz} 점열: 접선(tx,tz) 기준, 바깥 법선은 (tz,-tx) 부호 보정
+  const {hx,cz,hz,r,gate}=FENCE;
+  const step=1.7, pts=[];
+  const push=(x,z,tx,tz)=>pts.push({x,z,tx,tz});
+  const line=(x1,z1,x2,z2,skipGate)=>{
+    const len=Math.hypot(x2-x1,z2-z1), n=Math.max(1,Math.round(len/step));
+    for(let i=0;i<=n;i++){
+      const t=i/n, x=x1+(x2-x1)*t, z=z1+(z2-z1)*t;
+      if(skipGate && Math.abs(x)<gate) continue;
+      push(x,z,(x2-x1)/len,(z2-z1)/len);
+    }
+  };
+  const arc=(cx,cz2,a0,a1)=>{
+    const len=Math.abs(a1-a0)*r, n=Math.max(2,Math.round(len/step));
+    for(let i=0;i<=n;i++){
+      const a=a0+(a1-a0)*(i/n);
+      push(cx+Math.cos(a)*r, cz2+Math.sin(a)*r, -Math.sin(a)*Math.sign(a1-a0), Math.cos(a)*Math.sign(a1-a0));
+    }
+  };
+  const zS=cz-hz, zN=cz+hz;
+  // 남(→), 동(↑), 북(←), 서(↓) - 반시계
+  line(-(hx-r),zS, hx-r,zS, true);                    // 남쪽 (게이트 포함)
+  arc(hx-r, zS+r, -Math.PI/2, 0);                     // SE 코너
+  line(hx, zS+r, hx, zN-r);                           // 동쪽
+  arc(hx-r, zN-r, 0, Math.PI/2);                      // NE 코너
+  line(hx-r, zN, -(hx-r), zN);                        // 북쪽
+  arc(-(hx-r), zN-r, Math.PI/2, Math.PI);             // NW 코너
+  line(-hx, zN-r, -hx, zS+r);                         // 서쪽
+  arc(-(hx-r), zS+r, Math.PI, Math.PI*1.5);           // SW 코너
+  // 바깥 법선 계산 (마을 중심 반대 방향)
+  pts.forEach(p=>{
+    let nx=p.tz, nz=-p.tx;
+    const dx=p.x-0, dz=p.z-cz;
+    if(nx*dx+nz*dz<0){ nx=-nx; nz=-nz; }
+    p.nx=nx; p.nz=nz;
+  });
+  return pts;
+}
+function buildFence(){
+  const pts=fencePerimeter();
+  const postM=new THREE.MeshStandardMaterial({color:0x7a4a26,roughness:.85});
+  const railM=new THREE.MeshStandardMaterial({color:0x9c6a3c,roughness:.85});
+  const postG=new THREE.CylinderGeometry(0.09,0.115,1.0,7);
+  const railG=new THREE.BoxGeometry(0.075,0.11,1);
+  const posts=new THREE.InstancedMesh(postG,postM,pts.length);
+  const rails=new THREE.InstancedMesh(railG,railM,pts.length*2);
+  posts.castShadow=true; rails.castShadow=true;
+  const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), up=new THREE.Vector3(0,1,0), sc=new THREE.Vector3(1,1,1);
+  let ri=0;
+  for(let i=0;i<pts.length;i++){
+    const p=pts[i];
+    m4.compose(new THREE.Vector3(p.x,0.5,p.z), q.identity(), sc.set(1,1,1));
+    posts.setMatrixAt(i,m4);
+    // 레일: 다음 점까지 (마지막 점은 첫 점과 연결하지 않음 - 게이트/시계열 끊김 방지를 위해 i+1까지만)
+    if(i<pts.length-1){
+      const n=pts[i+1];
+      const mx=(p.x+n.x)/2, mz=(p.z+n.z)/2;
+      const len=Math.hypot(n.x-p.x,n.z-p.z);
+      if(len<2.6){ // 게이트 건너뛰기 연결 방지
+        const ang=Math.atan2(n.x-p.x,n.z-p.z);
+        q.setFromAxisAngle(up,ang);
+        for(const h of [0.32,0.68]){
+          m4.compose(new THREE.Vector3(mx,h,mz), q, sc.set(1,1,len));
+          rails.setMatrixAt(ri++,m4);
+        }
+      }
+    }
   }
-  outer.forEach(([x,z,t,s],i)=>staticAsset(t,x,z,i*0.9,s));
-  // 중간 링 장식
-  [[-17,-14,'pine2',.6],[16,12,'pine1',.55],[-18,8,'ctree',.6],[14,-15,'pine2',.55],[-4,-19,'pine1',.6],[7,18,'ctree',.55],[20,-8,'pine2',.5],[-20,-6,'pine1',.55]].forEach(([x,z,t,s],i)=>staticAsset(t,x,z,i*1.3,s));
-  staticAsset('bush',-14,2,0,.9); staticAsset('bush',16,-12,1,.85); staticAsset('rock',-12,-14,0.4,.9); staticAsset('rock',18,9,2.1,.8);
-  staticAsset('stump',-16,-4,0.8,.9); staticAsset('log',12,-13,1.9,.9); staticAsset('bush',-9,15,0,1); staticAsset('rock',6,16,1.2,.7);
-  staticAsset('torch',-6,-6,0,1); staticAsset('torch',3.5,8,0,1); staticAsset('torch',14,3,0,1); staticAsset('torch',-14,6,0,1);
-  staticAsset('pine2',-6.5,7.5,0.8,.45); staticAsset('pine1',11.5,8,2.2,.4); staticAsset('ctree',-8.5,-4.5,1.1,.42); staticAsset('bush',-3,8.8,0,.9); staticAsset('bush',9,-6.5,1,.8); staticAsset('rock',-6,-6.5,2.6,.6); staticAsset('stump',2.5,11,0.3,.8);
-  staticAsset('rock',-11.5,3.5,0.4,.9); staticAsset('rock',10.5,-8,2.1,.8); staticAsset('rock',4,11.5,1.2,.7);
-  staticAsset('stump',-9,8.5,0.8,.9); staticAsset('log',-10,-6,1.9,.9); staticAsset('bush',-7,-9.5,0,1);
-  staticAsset('torch',-3.4,-1.6,0,1); staticAsset('torch',4.2,-3.2,0,1); staticAsset('torch',-1.5,4.8,0,1);
+  rails.count=ri;
+  scene.add(posts); scene.add(rails);
+  // 게이트 기둥 2개 + 토치
+  const gateM=new THREE.MeshStandardMaterial({color:0x6b3f20,roughness:.8});
+  for(const gx of [-FENCE.gate,FENCE.gate]){
+    const gp=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.19,1.5,8),gateM);
+    gp.position.set(gx,0.75,FENCE.cz-FENCE.hz); gp.castShadow=true; scene.add(gp);
+    staticAsset('torch',gx*1.6,FENCE.cz-FENCE.hz-1.2,0,1);
+  }
+  // 울타리 바깥 자연 배경 (나무/바위/눈언덕) — 안쪽에는 일절 배치하지 않음
+  const kinds=['pine1','pine2','ctree','rock','bush'];
+  let seed=7;
+  const rnd=()=>{ seed=(seed*16807)%2147483647; return seed/2147483647; };
+  for(let i=0;i<pts.length;i+=2){
+    const p=pts[i];
+    if(Math.abs(p.x)<6 && p.nz<-0.7) continue; // 게이트 앞은 뚫어줌
+    const d=2.6+rnd()*4.5;
+    const x=p.x+p.nx*d + (-p.nz)*(rnd()-0.5)*1.6;
+    const z=p.z+p.nz*d + (p.nx)*(rnd()-0.5)*1.6;
+    if(Math.hypot(x,z)>28.5) continue;
+    staticAsset(kinds[Math.floor(rnd()*kinds.length)], x, z, rnd()*6.28, 0.45+rnd()*0.25);
+    if(rnd()<0.3){ // 바깥에만 눈언덕
+      const d2=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),new THREE.MeshStandardMaterial({color:0xf2f5fd,roughness:1}));
+      const ss=1.8+rnd()*1.4; d2.scale.set(ss,ss*0.9,ss*0.32);
+      d2.position.set(x+(rnd()-0.5)*3,-0.15,z+(rnd()-0.5)*3); d2.receiveShadow=true; scene.add(d2);
+    }
+  }
 }
 // 모닥불 (절차적)
 function buildCampfire(x,z){
@@ -191,10 +268,8 @@ function buildStations(){
   // 식탁
   TABLES.forEach((t,i)=>{ if(t.built) buildTable(t); });
   staticAsset('coins',3.5,1.5,0,0.8);
-  staticAsset('barrel',-4.2,4.6,0.5,1); staticAsset('barrel',4.6,7.8,2.4,1);
+  staticAsset('barrel',-4.2,4.6,0.5,1);
   staticAsset('menu',-0.5,6.8,-0.5,1);
-  staticAsset('log',7.8,-3.2,1.2,0.8); staticAsset('stump',9.2,-2.4,0.9,0.7);
-  staticAsset('bush',-10.5,7,0.4,.8); staticAsset('rock',11,6.5,0.9,.7);
   // 장작 더미 (모닥불 옆)
   staticAsset('log',FIRE.pos.x-1.6,FIRE.pos.z+1.4,0.3,0.9);
   staticAsset('log',FIRE.pos.x-1.9,FIRE.pos.z+1.7,1.2,0.9);
@@ -301,8 +376,15 @@ function updateHero(dt){
     vx/=Math.max(len,1); vz/=Math.max(len,1);
     hero.rig.obj.position.x+=vx*CFG.heroSpeed*dt;
     hero.rig.obj.position.z+=vz*CFG.heroSpeed*dt;
-    const r=Math.hypot(hero.rig.obj.position.x,hero.rig.obj.position.z);
-    if(r>24.5){ hero.rig.obj.position.x*=24.5/r; hero.rig.obj.position.z*=24.5/r; }
+    const p=hero.rig.obj.position;
+    p.x=Math.max(-10.9,Math.min(10.9,p.x));
+    p.z=Math.max(-20.9,Math.min(26.9,p.z));
+    for(const [cx,cz] of [[6.4,-16.4],[6.4,22.4],[-6.4,-16.4],[-6.4,22.4]]){
+      if((p.x-cx)*Math.sign(cx)>0 && (p.z-cz)*Math.sign(cz)>0){
+        const dx=p.x-cx,dz=p.z-cz,l=Math.hypot(dx,dz);
+        if(l>4.5){ p.x=cx+dx/l*4.5; p.z=cz+dz/l*4.5; }
+      }
+    }
     hero.rig.obj.rotation.y=Math.atan2(vx,vz);
     playAnim(hero.rig,'Running_A');
   } else playAnim(hero.rig,'Idle');
