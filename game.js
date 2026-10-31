@@ -312,6 +312,12 @@ const keys={};
 addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('selectstart',e=>e.preventDefault());
 document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('gesturechange',e=>e.preventDefault());
+document.addEventListener('gestureend',e=>e.preventDefault());
+// iOS Safari는 user-scalable=no를 무시하므로 JS로 핀치/더블탭 줌 차단
+document.addEventListener('touchmove',e=>{ if(e.touches.length>1) e.preventDefault(); },{passive:false});
+document.addEventListener('touchend',e=>{ e.preventDefault(); },{passive:false});
+document.addEventListener('dblclick',e=>e.preventDefault());
 addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 const joy=document.getElementById('joy'), knob=document.getElementById('joyknob');
