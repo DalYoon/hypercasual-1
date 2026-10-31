@@ -191,7 +191,7 @@ function buildStations(){
   // 식탁
   TABLES.forEach((t,i)=>{ if(t.built) buildTable(t); });
   staticAsset('coins',3.5,1.5,0,0.8);
-  staticAsset('barrel',-4.2,4.6,0.5,1); staticAsset('barrel',3.8,6.6,2.4,1);
+  staticAsset('barrel',-4.2,4.6,0.5,1); staticAsset('barrel',4.6,7.8,2.4,1);
   staticAsset('menu',-0.5,6.8,-0.5,1);
   staticAsset('log',7.8,-3.2,1.2,0.8); staticAsset('stump',9.2,-2.4,0.9,0.7);
   staticAsset('bush',-10.5,7,0.4,.8); staticAsset('rock',11,6.5,0.9,.7);
@@ -406,7 +406,7 @@ function step(w,dt){
 // 손님 (줄서기 경제: 수요는 항상 충분, 서빙 속도가 수익을 결정)
 let customers=[], queue=[];
 const ENTR=new THREE.Vector3(0,0,-24), EXIT=new THREE.Vector3(0,0,-25.5);
-const QA=new THREE.Vector3(2.5,0,-4.5);          // 줄 머리
+const QA=new THREE.Vector3(2.0,0,-5.5);          // 줄 머리
 const QD=new THREE.Vector3(-0.127,0,-0.992);     // 줄 방향 (입구 쪽)
 function queueSlot(k){ return new THREE.Vector3(QA.x+QD.x*1.7*k, 0, QA.z+QD.z*1.7*k); }
 function spawnCustomer(){
