@@ -11,15 +11,17 @@ const CFG = {
   offlineCapMin: 120,
 };
 const PAD_DEFS=[
-  { id:'table',  label:'식탁 업그레이드',  pos:[4.5,-3.0],  costs:[120,300,600], icon:'table' },
-  { id:'hunter', label:'고기 알바 고용', pos:[-3.0,-4.0], costs:[50,220,380,600,850],             icon:'hunter' },
-  { id:'server', label:'서빙 알바 고용', pos:[-7.0,-4.5], costs:[50,220,380,600,850],             icon:'server' },
-  { id:'hunt',   label:'사냥 가속',  pos:[-5.5,-1.0], costs:[80,200,400,700],                  icon:'steak' },
-  { id:'fire',   label:'모닥불 강화', pos:[2.0,5.2],  costs:[100,250,500],                     icon:'pot' },
-  { id:'bag',    label:'큰 가방',   pos:[-3.0,-8.0],  costs:[150],                             icon:'bag' },
+  { id:'table',  label:'식탁 업그레이드',  pos:[4.5,-3.0],  base:[120,300,600],        mult:2.2, icon:'table' },
+  { id:'hunter', label:'고기 알바 고용', pos:[-3.0,-4.0], base:[50,220,380,600,850],  mult:1.6, icon:'hunter' },
+  { id:'server', label:'서빙 알바 고용', pos:[-7.0,-4.5], base:[50,220,380,600,850],  mult:1.6, icon:'server' },
+  { id:'hunt',   label:'사냥 가속',  pos:[-5.5,-1.0], base:[80,200,400,700],        mult:1.7, icon:'steak' },
+  { id:'fire',   label:'모닥불 강화', pos:[2.0,5.2],  base:[100,250,500],           mult:1.7, icon:'pot' },
+  { id:'bag',    label:'큰 가방',   pos:[-3.0,-8.0],  base:[150],                   mult:1.8, icon:'bag' },
 ];
-const HUNT_IV=[2.5,1.4,0.8,0.6,0.45];
-const FIRE_CT=[1.8,1.0,0.7,0.5];
+// 무한 레벨: 가격은 지수 곡선으로 계속 상승, 발판은 사라지지 않음
+function costAt(def,lv){ const b=def.base; return lv<b.length ? b[lv] : Math.round(b[b.length-1]*Math.pow(def.mult,lv-b.length+1)); }
+function huntIv(lv){ const a=[2.5,1.4,0.8,0.6,0.45]; return lv<a.length?a[lv]:Math.max(0.25,a[a.length-1]*Math.pow(0.85,lv-a.length+1)); }
+function fireCt(lv){ const a=[1.8,1.0,0.7,0.5]; return lv<a.length?a[lv]:Math.max(0.3,a[a.length-1]*Math.pow(0.85,lv-a.length+1)); }
 
 // ============================== 상태 ==============================
 const SAVE_KEY='snowcamp_v3';
@@ -264,9 +266,9 @@ const TABLE_TIERS=[
 ];
 const TABLES=[ {pos:new THREE.Vector3(6.5,0,-2), tier:0, custs:[], stew:0, group:null},
                {pos:new THREE.Vector3(6.5,0,7),  tier:0, custs:[], stew:0, group:null} ];
-function seatCap(t){ return TABLE_TIERS[t.tier].seats; }
+function seatCap(t){ return tierDef(t.tier).seats; }
 function seatPos(t,i){
-  const tier=TABLE_TIERS[t.tier], n=tier.seats;
+  const tier=tierDef(t.tier), n=tier.seats;
   const a=-Math.PI/2 + i*(Math.PI*2/n), cr=1.5*tier.scale+0.35;
   return new THREE.Vector3(t.pos.x+Math.cos(a)*cr, 0, t.pos.z+Math.sin(a)*cr);
 }
@@ -292,7 +294,7 @@ function buildStations(){
 }
 function buildTable(t){
   if(t.group){ scene.remove(t.group); }
-  const tier=TABLE_TIERS[t.tier];
+  const tier=tierDef(t.tier);
   const g=new THREE.Group(); g.position.copy(t.pos);
   const rug=new THREE.Mesh(new THREE.CircleGeometry(tier.rug,40),new THREE.MeshStandardMaterial({color:tier.color,roughness:1}));
   rug.rotation.x=-Math.PI/2; rug.position.y=0.015; rug.receiveShadow=true; g.add(rug);
@@ -328,8 +330,7 @@ function padIcon(k){
 }
 function makePad(def){
   const lv=S.lv[def.id]||0;
-  if(lv>=def.costs.length) return;
-  const cost=def.costs[lv];
+  const cost=costAt(def,lv);
   const g=new THREE.Group(); g.position.set(def.pos[0],0.02,def.pos[1]);
   const ring=new THREE.Mesh(new THREE.RingGeometry(0.7,1.05,40),new THREE.MeshBasicMaterial({color:0xffd34d,transparent:true,opacity:.95,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; g.add(ring);
@@ -341,12 +342,12 @@ function makePad(def){
   scene.add(g); pads.push(g);
 }
 function applyPadLevel(id,lv){
-  if(id==='table'){ TABLES.forEach(t=>{ t.tier=Math.min(lv,TABLE_TIERS.length-1); buildTable(t); }); }
+  if(id==='table'){ TABLES.forEach(t=>{ t.tier=lv; buildTable(t); }); }
   if(id==='hunter') hireWorker('hunter');
   if(id==='server') hireWorker('server');
-  if(id==='hunt') HUNT.iv=HUNT_IV[lv];
-  if(id==='fire'){ FIRE.ct=FIRE_CT[lv]; campfire.scale.setScalar(1+0.18*lv); }
-  if(id==='bag') CFG.carryMax=5;
+  if(id==='hunt') HUNT.iv=huntIv(lv);
+  if(id==='fire'){ FIRE.ct=fireCt(lv); campfire.scale.setScalar(1+0.18*Math.min(lv,6)); }
+  if(id==='bag') CFG.carryMax=4+lv;
 }
 function purchasePad(g){
   sfx.unlock();
@@ -355,11 +356,10 @@ function purchasePad(g){
   toast(`✅ ${def.label} Lv.${lv}!`);
   applyPadLevel(def.id,lv);
   pop(g.position,0xffd34d);
-  if(lv>=def.costs.length){ scene.remove(g); pads=pads.filter(x=>x!==g); return; }
-  g.userData.cost=def.costs[lv]; g.userData.progress=0;
+  g.userData.cost=costAt(def,lv); g.userData.progress=0;
   g.userData.fill.scale.setScalar(0.2);
   g.remove(g.userData.costLb);
-  g.userData.costLb=textSprite(`🪙${def.costs[lv]}`,{size:44}); g.userData.costLb.position.y=0.9; g.add(g.userData.costLb);
+  g.userData.costLb=textSprite(`🪙${costAt(def,lv)}`,{size:44}); g.userData.costLb.position.y=0.9; g.add(g.userData.costLb);
 }
 function hireWorker(role){
   const rig=makeRig(role==='hunter'?'Rogue':'Mage', FIRE.pos.x+1.5, FIRE.pos.z-1.5, Math.PI);
@@ -668,12 +668,12 @@ loadAll().then(()=>{
   buildWorld(); buildStations(); buildSnow();
   hero={rig:makeRig('Rogue_Hooded',0,-1.5,0), carry:null, carryObjs:[], dropCd:0};
   // 저장 복원 (레벨제)
-  if(S.lv.table>0){ TABLES.forEach(t=>{ t.tier=Math.min(S.lv.table,TABLE_TIERS.length-1); buildTable(t); }); }
+  if(S.lv.table>0){ TABLES.forEach(t=>{ t.tier=S.lv.table; buildTable(t); }); }
   for(let i=0;i<(S.lv.hunter||0);i++) hireWorker('hunter');
   for(let i=0;i<(S.lv.server||0);i++) hireWorker('server');
-  if(S.lv.hunt) HUNT.iv=HUNT_IV[S.lv.hunt];
-  if(S.lv.fire){ FIRE.ct=FIRE_CT[S.lv.fire]; campfire.scale.setScalar(1+0.18*S.lv.fire); }
-  if(S.lv.bag) CFG.carryMax=5;
+  if(S.lv.hunt) HUNT.iv=huntIv(S.lv.hunt);
+  if(S.lv.fire){ FIRE.ct=fireCt(S.lv.fire); campfire.scale.setScalar(1+0.18*Math.min(S.lv.fire,6)); }
+  if(S.lv.bag) CFG.carryMax=4+S.lv.bag;
   PAD_DEFS.forEach(makePad);
   offlineSettle();
   setTimeout(()=>toast('WASD/방향키 또는 드래그로 이동 · 발판을 밟아 확장!'),1200);
