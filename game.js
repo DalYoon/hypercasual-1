@@ -10,25 +10,29 @@ const CFG = {
   queueMax: 10, meatMax: 4, stewMax: 4, carryMax: 3,
   offlineCapMin: 120,
 };
-const PADS = [
-  { id:'worker1', label:'일꾼 고용', cost:50,  pos:[-5.5,-3.5] },
-  { id:'table2',  label:'식탁 확장', cost:120, pos:[6.5,-4.0] },
-  { id:'hunt2',   label:'사냥터 가속', cost:80, pos:[-8.5,2.5] },
-  { id:'fire2',   label:'모닥불 강화', cost:100,pos:[-1.0,6.5] },
-  { id:'worker2', label:'일꾼 고용 2', cost:220,pos:[-5.5,-6.5] },
-  { id:'table3',  label:'식탁 확장 2', cost:300,pos:[9.5,-1.0] },
-  { id:'worker3', label:'일꾼 고용 3', cost:380,pos:[-9.5,-8.5] },
-  { id:'hunt3',   label:'사냥터 가속 2', cost:200,pos:[-11.5,4.8] },
-  { id:'bag1',    label:'큰 가방 (5개 운반)', cost:150,pos:[-2.5,-7.5] },
-  { id:'table4',  label:'식탁 확장 3', cost:450,pos:[13.5,6.5] },
-  { id:'table5',  label:'식탁 확장 4', cost:700,pos:[16.5,-0.5] },
+const PAD_DEFS=[
+  { id:'table',  label:'식탁 추가',  pos:[4.5,-3.0],  costs:[120,300,450,700,1000,1400,1900], icon:'table' },
+  { id:'worker', label:'일꾼 고용',  pos:[0.0,-4.5],  costs:[50,220,380,600,850],              icon:'worker' },
+  { id:'hunt',   label:'사냥 가속',  pos:[-5.5,-1.0], costs:[80,200,400,700],                  icon:'steak' },
+  { id:'fire',   label:'모닥불 강화', pos:[2.0,5.2],  costs:[100,250,500],                     icon:'pot' },
+  { id:'bag',    label:'큰 가방',   pos:[-3.0,-8.0],  costs:[150],                             icon:'bag' },
 ];
+const HUNT_IV=[2.5,1.4,0.8,0.6,0.45];
+const FIRE_CT=[1.8,1.0,0.7,0.5];
 
 // ============================== 상태 ==============================
 const SAVE_KEY='snowcamp_v3';
 let S = { coins:20, unlocked:{}, served:0, ts:Date.now() };
 try { const d=JSON.parse(localStorage.getItem(SAVE_KEY)); if(d&&typeof d.coins==='number') S={...S,...d}; } catch(e){}
 function save(){ S.ts=Date.now(); try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){} }
+// 구버전 세이브 → 레벨제 마이그레이션
+if(!S.lv){
+  const u=S.unlocked||{};
+  S.lv={ table:(u.table2?1:0)+(u.table3?1:0)+(u.table4?1:0)+(u.table5?1:0),
+         worker:(u.worker1?1:0)+(u.worker2?1:0)+(u.worker3?1:0),
+         hunt:(u.hunt2?1:0)+(u.hunt3?1:0), fire:(u.fire2?1:0), bag:(u.bag1?1:0) };
+  delete S.unlocked; save();
+}
 function fmt(n){ return n>=1000 ? (n/1000).toFixed(1)+'k' : Math.floor(n); }
 
 // ============================== three 기본 ==============================
@@ -124,7 +128,7 @@ function buildWorld(){
   });
   // 얼음 패치
   const iceM=new THREE.MeshStandardMaterial({color:0xd3e4f7,roughness:0.35});
-  [[-5,-6,2.6],[6.5,7.5,2.0],[9,-5,1.6],[-9.5,-1,1.8],[-15,-8,3.0],[13,11,2.4],[-13,13,2.2],[18,-6,2.0],[3,-14,2.6],[-18,4,2.0]].forEach(([x,z,r],i)=>{
+  [[-5,-6,2.6],[-14,8,2.0],[9,-5,1.6],[-9.5,-1,1.8],[-15,-8,3.0],[13,11,2.4],[-13,13,2.2],[18,-6,2.0],[3,-14,2.6],[-18,4,2.0]].forEach(([x,z,r],i)=>{
     const ice=new THREE.Mesh(new THREE.CircleGeometry(r,24),iceM);
     ice.rotation.x=-Math.PI/2; ice.position.set(x,0.012,z); ice.receiveShadow=true; scene.add(ice);
   });
@@ -144,8 +148,8 @@ function buildWorld(){
   [[-17,-14,'pine2',.6],[16,12,'pine1',.55],[-18,8,'ctree',.6],[14,-15,'pine2',.55],[-4,-19,'pine1',.6],[7,18,'ctree',.55],[20,-8,'pine2',.5],[-20,-6,'pine1',.55]].forEach(([x,z,t,s],i)=>staticAsset(t,x,z,i*1.3,s));
   staticAsset('bush',-14,2,0,.9); staticAsset('bush',16,-12,1,.85); staticAsset('rock',-12,-14,0.4,.9); staticAsset('rock',18,9,2.1,.8);
   staticAsset('stump',-16,-4,0.8,.9); staticAsset('log',12,-13,1.9,.9); staticAsset('bush',-9,15,0,1); staticAsset('rock',6,16,1.2,.7);
-  staticAsset('torch',-6,-6,0,1); staticAsset('torch',8,8,0,1); staticAsset('torch',14,3,0,1); staticAsset('torch',-14,6,0,1);
-  staticAsset('pine2',-6.5,7.5,0.8,.45); staticAsset('pine1',7.5,7,2.2,.4); staticAsset('ctree',-8.5,-4.5,1.1,.42); staticAsset('bush',-3,8.8,0,.9); staticAsset('bush',9,-6.5,1,.8); staticAsset('rock',-6,-6.5,2.6,.6); staticAsset('stump',6.5,9.5,0.3,.8);
+  staticAsset('torch',-6,-6,0,1); staticAsset('torch',3.5,8,0,1); staticAsset('torch',14,3,0,1); staticAsset('torch',-14,6,0,1);
+  staticAsset('pine2',-6.5,7.5,0.8,.45); staticAsset('pine1',11.5,8,2.2,.4); staticAsset('ctree',-8.5,-4.5,1.1,.42); staticAsset('bush',-3,8.8,0,.9); staticAsset('bush',9,-6.5,1,.8); staticAsset('rock',-6,-6.5,2.6,.6); staticAsset('stump',2.5,11,0.3,.8);
   staticAsset('rock',-11.5,3.5,0.4,.9); staticAsset('rock',10.5,-8,2.1,.8); staticAsset('rock',4,11.5,1.2,.7);
   staticAsset('stump',-9,8.5,0.8,.9); staticAsset('log',-10,-6,1.9,.9); staticAsset('bush',-7,-9.5,0,1);
   staticAsset('torch',-3.4,-1.6,0,1); staticAsset('torch',4.2,-3.2,0,1); staticAsset('torch',-1.5,4.8,0,1);
@@ -172,11 +176,7 @@ function buildCampfire(x,z){
 // ============================== 게임 오브젝트 ==============================
 const HUNT={pos:new THREE.Vector3(-8,0,2), stock:[], iv:CFG.huntInterval, t:0};
 const FIRE={pos:new THREE.Vector3(-2,0,2), raw:0, stew:0, cooking:0, ct:CFG.cookTime};
-const TABLES=[ {pos:new THREE.Vector3(5,0,3), built:true, cust:null, stew:0, eating:0},
-               {pos:new THREE.Vector3(8,0,1), built:false, cust:null, stew:0, eating:0, padId:'table2'},
-               {pos:new THREE.Vector3(10.5,0,4.5), built:false, cust:null, stew:0, eating:0, padId:'table3'},
-               {pos:new THREE.Vector3(12,0,6.5), built:false, cust:null, stew:0, eating:0, padId:'table4'},
-               {pos:new THREE.Vector3(15,0,0.5), built:false, cust:null, stew:0, eating:0, padId:'table5'} ];
+const TABLES=[]; for(let i=0;i<8;i++) TABLES.push({pos:new THREE.Vector3(6.5,0,i*3.4), built:i===0, cust:null, stew:0, eating:0});
 let workers=[], pads=[], hero, campfire, custT=0, stockMeshes=[], stewMeshes=[], coinFx=[];
 
 function buildStations(){
@@ -190,9 +190,9 @@ function buildStations(){
   staticAsset('pot',FIRE.pos.x+2.2,FIRE.pos.z+1.2,0,1);
   // 식탁
   TABLES.forEach((t,i)=>{ if(t.built) buildTable(t); });
-  staticAsset('coins',7.2,4.4,0,0.8);
-  staticAsset('barrel',-4.2,4.6,0.5,1); staticAsset('barrel',3.2,5.8,2.4,1);
-  staticAsset('menu',1.6,4.6,-0.5,1);
+  staticAsset('coins',3.5,1.5,0,0.8);
+  staticAsset('barrel',-4.2,4.6,0.5,1); staticAsset('barrel',3.8,6.6,2.4,1);
+  staticAsset('menu',-0.5,6.8,-0.5,1);
   staticAsset('log',7.8,-3.2,1.2,0.8); staticAsset('stump',9.2,-2.4,0.9,0.7);
   staticAsset('bush',-10.5,7,0.4,.8); staticAsset('rock',11,6.5,0.9,.7);
   // 장작 더미 (모닥불 옆)
@@ -208,11 +208,7 @@ function buildTable(t){
   staticAsset('chair',t.pos.x+1.4,t.pos.z+1.0,-0.7,1);
 }
 // 발판
-const PAD_ICONS={ worker1:'Rogue', worker2:'Mage', worker3:'Barbarian',
-  table2:'table', table3:'table', table4:'table', table5:'table',
-  hunt2:'steak', hunt3:'steak', fire2:'pot', bag1:'bag' };
-function padIcon(p){
-  const k=PAD_ICONS[p.id];
+function padIcon(k){
   if(k==='bag'){
     const grp=new THREE.Group();
     const a=cloneAsset('steak'); a.scale.setScalar(0.5); a.position.set(-0.28,0,0); grp.add(a);
@@ -226,38 +222,42 @@ function padIcon(p){
     const ch=cloneAsset('chair'); ch.scale.setScalar(0.55); ch.position.set(0.9,0,0.6); ch.rotation.y=-0.7; grp.add(ch);
     return grp;
   }
-  const m=cloneAsset(k);
-  if(k==='Rogue'||k==='Mage'||k==='Barbarian'){ m.scale.setScalar(0.62); }
-  else m.scale.setScalar(0.6);
-  return m;
+  if(k==='worker'){ const m=cloneAsset('Rogue'); m.scale.setScalar(0.62); return m; }
+  const m=cloneAsset(k); m.scale.setScalar(0.6); return m;
 }
-function makePad(p){
-  const g=new THREE.Group(); g.position.set(p.pos[0],0.02,p.pos[1]);
+function makePad(def){
+  const lv=S.lv[def.id]||0;
+  if(lv>=def.costs.length) return;
+  const cost=def.costs[lv];
+  const g=new THREE.Group(); g.position.set(def.pos[0],0.02,def.pos[1]);
   const ring=new THREE.Mesh(new THREE.RingGeometry(0.7,1.05,40),new THREE.MeshBasicMaterial({color:0xffd34d,transparent:true,opacity:.95,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; g.add(ring);
   const fill=new THREE.Mesh(new THREE.CircleGeometry(0.7,40),new THREE.MeshBasicMaterial({color:0xffd34d,transparent:true,opacity:.25,side:THREE.DoubleSide}));
   fill.rotation.x=-Math.PI/2; g.add(fill);
-  
-  const icon=padIcon(p); icon.position.y=1.7; g.add(icon);
-  g.userData={pad:p,fill,ring,icon,progress:0};
+  const icon=padIcon(def.icon); icon.position.y=1.8; g.add(icon);
+  const costLb=textSprite(`🪙${cost}`,{size:44}); costLb.position.y=0.9; g.add(costLb);
+  g.userData={def,cost,fill,ring,icon,costLb,progress:0};
   scene.add(g); pads.push(g);
 }
-function unlockPad(g){
+function applyPadLevel(id,lv){
+  if(id==='table') buildTable(TABLES[lv]);
+  if(id==='worker') hireWorker();
+  if(id==='hunt') HUNT.iv=HUNT_IV[lv];
+  if(id==='fire'){ FIRE.ct=FIRE_CT[lv]; campfire.scale.setScalar(1+0.18*lv); }
+  if(id==='bag') CFG.carryMax=5;
+}
+function purchasePad(g){
   sfx.unlock();
-  const p=g.userData.pad; S.unlocked[p.id]=true; save();
-  scene.remove(g); pads=pads.filter(x=>x!==g);
-  toast(`✅ ${p.label} 완료!`);
-  if(p.id==='worker1'||p.id==='worker2') hireWorker();
-  if(p.id==='table2') buildTable(TABLES[1]);
-  if(p.id==='table3') buildTable(TABLES[2]);
-  if(p.id==='table4') buildTable(TABLES[3]);
-  if(p.id==='table5') buildTable(TABLES[4]);
-  if(p.id==='worker3') hireWorker();
-  if(p.id==='hunt2') HUNT.iv=1.4;
-  if(p.id==='hunt3') HUNT.iv=0.8;
-  if(p.id==='bag1') CFG.carryMax=5;
-  if(p.id==='fire2'){ FIRE.ct=1.0; campfire.scale.setScalar(1.25); }
+  const def=g.userData.def;
+  const lv=(S.lv[def.id]||0)+1; S.lv[def.id]=lv; save();
+  toast(`✅ ${def.label} Lv.${lv}!`);
+  applyPadLevel(def.id,lv);
   pop(g.position,0xffd34d);
+  if(lv>=def.costs.length){ scene.remove(g); pads=pads.filter(x=>x!==g); return; }
+  g.userData.cost=def.costs[lv]; g.userData.progress=0;
+  g.userData.fill.scale.setScalar(0.2);
+  g.remove(g.userData.costLb);
+  g.userData.costLb=textSprite(`🪙${def.costs[lv]}`,{size:44}); g.userData.costLb.position.y=0.9; g.add(g.userData.costLb);
 }
 function hireWorker(){
   const kinds=['Rogue','Mage'];
@@ -471,15 +471,15 @@ function updateCustomers(dt){
 // 발판
 function updatePads(dt){
   for(const g of [...pads]){
-    const p=g.userData.pad;
+    const cost=g.userData.cost;
     const near=dist(hero.rig.obj.position,g.position)<1.35;
     g.userData.ring.material.opacity = near?1:(0.7+Math.sin(clockT*3)*0.2);
     if(near && S.coins>0){
-      const rate=Math.max(30,p.cost*0.9); // 초당 소모
-      const pay=Math.min(rate*dt, S.coins, p.cost-g.userData.progress);
+      const rate=Math.max(60,cost*1.4);
+      const pay=Math.min(rate*dt, S.coins, cost-g.userData.progress);
       S.coins-=pay; g.userData.progress+=pay;
-      g.userData.fill.scale.setScalar(0.2+0.8*(g.userData.progress/p.cost));
-      if(g.userData.progress>=p.cost-0.001) unlockPad(g);
+      g.userData.fill.scale.setScalar(0.2+0.8*(g.userData.progress/cost));
+      if(g.userData.progress>=cost-0.001) purchasePad(g);
     }
   }
 }
@@ -532,23 +532,17 @@ function loop(ts){
 loadAll().then(()=>{
   buildWorld(); buildStations(); buildSnow();
   hero={rig:makeRig('Rogue_Hooded',0,-4,0), carry:null, carryObjs:[]};
-  // 저장 복원
-  if(S.unlocked.worker1) hireWorker();
-  if(S.unlocked.worker2) hireWorker();
-  if(S.unlocked.table2) buildTable(TABLES[1]);
-  if(S.unlocked.table3) buildTable(TABLES[2]);
-  if(S.unlocked.table4) buildTable(TABLES[3]);
-  if(S.unlocked.table5) buildTable(TABLES[4]);
-  if(S.unlocked.worker3) hireWorker();
-  if(S.unlocked.hunt2) HUNT.iv=1.4;
-  if(S.unlocked.hunt3) HUNT.iv=0.8;
-  if(S.unlocked.bag1) CFG.carryMax=5;
-  if(S.unlocked.fire2) FIRE.ct=1.0;
-  PADS.filter(p=>!S.unlocked[p.id]).forEach(makePad);
+  // 저장 복원 (레벨제)
+  for(let i=1;i<=(S.lv.table||0);i++) buildTable(TABLES[i]);
+  for(let i=0;i<(S.lv.worker||0);i++) hireWorker();
+  if(S.lv.hunt) HUNT.iv=HUNT_IV[S.lv.hunt];
+  if(S.lv.fire){ FIRE.ct=FIRE_CT[S.lv.fire]; campfire.scale.setScalar(1+0.18*S.lv.fire); }
+  if(S.lv.bag) CFG.carryMax=5;
+  PAD_DEFS.forEach(makePad);
   offlineSettle();
   setTimeout(()=>toast('WASD/방향키 또는 드래그로 이동 · 발판을 밟아 확장!'),1200);
   const l=document.getElementById('loading'); l.style.opacity=0; setTimeout(()=>l.remove(),500);
-  window.__g={S,CFG,get hero(){return hero},workers,HUNT,FIRE,TABLES,get customers(){return customers},get queue(){return queue},pads,get pads(){return pads}};
+  window.__g={S,CFG,PAD_DEFS,get hero(){return hero},workers,HUNT,FIRE,TABLES,get customers(){return customers},get queue(){return queue},pads,get pads(){return pads}};
   requestAnimationFrame(loop);
 }).catch(e=>{
   document.querySelector('#loading p').textContent='에셋 로딩 실패: '+e.message;
