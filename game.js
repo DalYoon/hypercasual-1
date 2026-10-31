@@ -4,7 +4,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
 // ============================== 설정 ==============================
 const CFG = {
-  camOffset: new THREE.Vector3(10.5, 12.5, 10.5),
+  camOffset: new THREE.Vector3(11.5, 14.5, 11.5),
   heroSpeed: 8.5, workerSpeed: 5.5, custSpeed: 4.5,
   huntInterval: 2.5, cookTime: 1.8, eatTime: 2.5, custSpawn: 1.0,
   queueMax: 10, meatMax: 4, stewMax: 4, carryMax: 3,
@@ -12,7 +12,8 @@ const CFG = {
 };
 const PAD_DEFS=[
   { id:'table',  label:'식탁 업그레이드',  pos:[4.5,-3.0],  costs:[120,300,600], icon:'table' },
-  { id:'worker', label:'일꾼 고용',  pos:[-3.0,-4.0],  costs:[50,220,380,600,850],              icon:'worker' },
+  { id:'hunter', label:'고기 알바 고용', pos:[-3.0,-4.0], costs:[50,220,380],                    icon:'hunter' },
+  { id:'server', label:'서빙 알바 고용', pos:[-7.0,-4.5], costs:[50,220,380],                    icon:'server' },
   { id:'hunt',   label:'사냥 가속',  pos:[-5.5,-1.0], costs:[80,200,400,700],                  icon:'steak' },
   { id:'fire',   label:'모닥불 강화', pos:[2.0,5.2],  costs:[100,250,500],                     icon:'pot' },
   { id:'bag',    label:'큰 가방',   pos:[-3.0,-8.0],  costs:[150],                             icon:'bag' },
@@ -34,6 +35,7 @@ if(!S.lv){
   delete S.unlocked; save();
 }
 if(!S.lvT){ S.lv.table=Math.min(3,Math.floor((S.lv.table||0)/2)); S.lvT=true; save(); }
+if(S.lv.worker!==undefined){ const n=S.lv.worker||0; S.lv.hunter=Math.ceil(n/2); S.lv.server=Math.floor(n/2); delete S.lv.worker; save(); }
 function fmt(n){ return n>=1000 ? (n/1000).toFixed(1)+'k' : Math.floor(n); }
 
 // ============================== three 기본 ==============================
@@ -48,7 +50,7 @@ const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xbfd2ea);
 scene.fog=new THREE.Fog(0xbfd2ea, 34, 70);
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,0.1,200);
-function fitCam(){ const a=innerWidth/innerHeight, s=8.2; camera.left=-s*a; camera.right=s*a; camera.top=s; camera.bottom=-s; camera.updateProjectionMatrix(); }
+function fitCam(){ const a=innerWidth/innerHeight, s=11.2; camera.left=-s*a; camera.right=s*a; camera.top=s; camera.bottom=-s; camera.updateProjectionMatrix(); }
 fitCam(); addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);fitCam();});
 const hemi=new THREE.HemisphereLight(0xeaf2ff,0x9fb4d8,0.95); scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xfff3e0,2.0);
@@ -320,7 +322,8 @@ function padIcon(k){
     const ch=cloneAsset('chair'); ch.scale.setScalar(0.55); ch.position.set(0.9,0,0.6); ch.rotation.y=-0.7; grp.add(ch);
     return grp;
   }
-  if(k==='worker'){ const m=cloneAsset('Rogue'); m.scale.setScalar(0.62); return m; }
+  if(k==='hunter'){ const m=cloneAsset('Rogue'); m.scale.setScalar(0.62); return m; }
+  if(k==='server'){ const m=cloneAsset('Mage'); m.scale.setScalar(0.62); return m; }
   const m=cloneAsset(k); m.scale.setScalar(0.6); return m;
 }
 function makePad(def){
@@ -339,7 +342,8 @@ function makePad(def){
 }
 function applyPadLevel(id,lv){
   if(id==='table'){ TABLES.forEach(t=>{ t.tier=Math.min(lv,TABLE_TIERS.length-1); buildTable(t); }); }
-  if(id==='worker') hireWorker();
+  if(id==='hunter') hireWorker('hunter');
+  if(id==='server') hireWorker('server');
   if(id==='hunt') HUNT.iv=HUNT_IV[lv];
   if(id==='fire'){ FIRE.ct=FIRE_CT[lv]; campfire.scale.setScalar(1+0.18*lv); }
   if(id==='bag') CFG.carryMax=5;
@@ -357,10 +361,9 @@ function purchasePad(g){
   g.remove(g.userData.costLb);
   g.userData.costLb=textSprite(`🪙${def.costs[lv]}`,{size:44}); g.userData.costLb.position.y=0.9; g.add(g.userData.costLb);
 }
-function hireWorker(){
-  const kinds=['Rogue','Mage'];
-  const rig=makeRig(kinds[workers.length%kinds.length], FIRE.pos.x+1.5, FIRE.pos.z-1.5, Math.PI);
-  workers.push({rig, state:'idle', carry:null, carryObj:null, t:0, target:new THREE.Vector3()});
+function hireWorker(role){
+  const rig=makeRig(role==='hunter'?'Rogue':'Mage', FIRE.pos.x+1.5, FIRE.pos.z-1.5, Math.PI);
+  workers.push({rig, role, state:'idle', carry:null, carryObj:null, t:0, target:new THREE.Vector3()});
 }
 // 이펙트
 function pop(pos,color){
@@ -498,10 +501,15 @@ function updateWorker(w,dt){
   const o=w.rig.obj;
   const go=(v)=>{ w.target.copy(v); };
   if(w.state==='idle'){
-    if(w.carry==='stew' && TABLES.some(t=>t.stew<seatCap(t))) { w.state='toTable'; }
-    else if(FIRE.stew>0 && TABLES.some(t=>t.stew<seatCap(t))) { w.state='toStew'; }
-    else if(HUNT.stock.length>0 && FIRE.raw<CFG.stewMax) { w.state='toMeat'; }
-    else playAnim(w.rig,'Idle');
+    if(w.role==='server'){
+      if(w.carry==='stew' && TABLES.some(t=>t.stew<seatCap(t))) { w.state='toTable'; }
+      else if(FIRE.stew>0 && TABLES.some(t=>t.stew<seatCap(t))) { w.state='toStew'; }
+      else playAnim(w.rig,'Idle');
+    } else {
+      if(w.carry==='meat') { w.state='toFire'; }
+      else if(HUNT.stock.length>0 && FIRE.raw<CFG.stewMax) { w.state='toMeat'; }
+      else playAnim(w.rig,'Idle');
+    }
   }
   if(w.state==='toStew'){ go(FIRE.pos); if(step(w,dt)){ if(FIRE.stew>0){FIRE.stew--; setWorkerCarry(w,'stew'); playAnim(w.rig,'PickUp'); refreshStew(); w.state='toTable';} else w.state='idle'; } }
   else if(w.state==='toMeat'){ go(HUNT.pos); if(step(w,dt)){ if(HUNT.stock.length>0){HUNT.stock.pop(); setWorkerCarry(w,'meat'); playAnim(w.rig,'PickUp'); refreshStock(); w.state='toFire';} else w.state='idle'; } }
@@ -661,7 +669,8 @@ loadAll().then(()=>{
   hero={rig:makeRig('Rogue_Hooded',0,-1.5,0), carry:null, carryObjs:[], dropCd:0};
   // 저장 복원 (레벨제)
   if(S.lv.table>0){ TABLES.forEach(t=>{ t.tier=Math.min(S.lv.table,TABLE_TIERS.length-1); buildTable(t); }); }
-  for(let i=0;i<(S.lv.worker||0);i++) hireWorker();
+  for(let i=0;i<(S.lv.hunter||0);i++) hireWorker('hunter');
+  for(let i=0;i<(S.lv.server||0);i++) hireWorker('server');
   if(S.lv.hunt) HUNT.iv=HUNT_IV[S.lv.hunt];
   if(S.lv.fire){ FIRE.ct=FIRE_CT[S.lv.fire]; campfire.scale.setScalar(1+0.18*S.lv.fire); }
   if(S.lv.bag) CFG.carryMax=5;
