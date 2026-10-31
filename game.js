@@ -11,11 +11,11 @@ const CFG = {
   offlineCapMin: 120,
 };
 const PAD_DEFS=[
-  { id:'table',  label:'카운터 확장',  pos:[4.5,-3.0],  base:[120,300,600],        mult:2.2, icon:'table' },
-  { id:'hunter', label:'재료 알바 고용', pos:[-3.0,-4.0], base:[50,220,380,600,850],  mult:1.6, icon:'hunter' },
-  { id:'server', label:'서빙 알바 고용', pos:[-7.0,-4.5], base:[50,220,380,600,850],  mult:1.6, icon:'server' },
-  { id:'hunt',   label:'재료 입고',  pos:[-5.5,-1.0], base:[80,200,400,700],        mult:1.7, icon:'steak' },
-  { id:'fire',   label:'주방 강화', pos:[1.25,4.8], base:[100,250,500],           mult:1.7, icon:'Large_Pot_Filled' },
+  { id:'table',  label:'카운터 확장',  pos:[6.5,-5.0],  base:[120,300,600],        mult:2.2, icon:'table' },
+  { id:'hunter', label:'재료 알바 고용', pos:[-3.5,-5.2], base:[50,220,380,600,850],  mult:1.6, icon:'hunter' },
+  { id:'server', label:'서빙 알바 고용', pos:[-7.0,-5.8], base:[50,220,380,600,850],  mult:1.6, icon:'server' },
+  { id:'hunt',   label:'재료 입고',  pos:[-8.9,-1.5], base:[80,200,400,700],        mult:1.7, icon:'steak' },
+  { id:'fire',   label:'주방 강화', pos:[1.25,7.7], base:[100,250,500],           mult:1.7, icon:'Large_Pot_Filled' },
   { id:'bag',    label:'큰 쟁반',   pos:[-3.0,-8.0],  base:[150],                   mult:1.8, icon:'bag' },
 ];
 // 무한 레벨: 가격은 지수 곡선으로 계속 상승, 발판은 사라지지 않음
@@ -129,20 +129,6 @@ function buildWorld(){
   // 가게 내부 우드 플로어 (4x4 타일)
   for(let ix=0;ix<5;ix++) for(let iz=0;iz<4;iz++)
     staticAsset('Wood_Floor', -8+ix*4, -6+iz*4, 0, 1, -0.06);
-  // 길 (밝은색 도로)
-  const roadMat=new THREE.MeshStandardMaterial({color:0xbcab8c,roughness:1});
-  const edgeMat=new THREE.MeshStandardMaterial({color:0x8f7d61,roughness:1});
-  const mkRoad=(x,z,w,l)=>{
-    const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.06,l),roadMat); m.position.set(x,0.16,z); m.receiveShadow=true; scene.add(m);
-    const horiz=w>l;
-    for(const s of [-1,1]){
-      const e=new THREE.Mesh(new THREE.BoxGeometry(horiz?w:0.12,0.07,horiz?0.12:l),edgeMat);
-      e.position.set(horiz?x:x+s*(w/2-0.06), 0.17, horiz?z+s*(l/2-0.06):z); scene.add(e);
-    }
-  };
-  mkRoad(0,-8,2,5.5);        // 입구 도로
-  mkRoad(2,-1,1.6,9);        // 세로 도로 (줄 -> 카운터 앞)
-  mkRoad(0.75,4.3,18.5,3.2); // 카운터 앞 프로머나드
   // 벽: 북쪽 + 양옆 (홍목), 남쪽은 거리로 개방
   for(let i=0;i<10;i++) staticAsset('Red_Wood_Wall', -8.4+i*1.87, 9.6, 0, 0.5);
   for(let i=0;i<8;i++){ staticAsset('Red_Wood_Wall', -9.6, -4.2+i*1.87, Math.PI/2, 0.5); staticAsset('Red_Wood_Wall', 10.6, -4.2+i*1.87, Math.PI/2, 0.5); }
@@ -171,13 +157,17 @@ function tierDef(lv){
   if(lv<TABLE_TIERS0.length) return TABLE_TIERS0[lv];
   return {seats:8+(lv-3), scale:Math.min(1.6,1.45+0.05*(lv-3)), rug:Math.min(4.4,4.0+0.1*(lv-3)), color:0xb45c48};
 }
-const TABLES=[ {pos:new THREE.Vector3(-3.5,0,6.5), tier:0, custs:[], stew:0, group:null, colBox:null},
-               {pos:new THREE.Vector3(6.0,0,6.5),  tier:0, custs:[], stew:0, group:null, colBox:null} ];
+const TABLES=[ {pos:new THREE.Vector3(-4.5,0,6.5), tier:0, custs:[], stew:0, group:null, colBoxes:[]},
+               {pos:new THREE.Vector3(6.5,0,6.5),  tier:0, custs:[], stew:0, group:null, colBoxes:[]} ];
 const OBSTACLES=[];
 function seatCap(t){ return tierDef(t.tier).seats; }
+const ROW_D=3.8, SP=1.3; // 열 간격, 좌석 간격(넓게)
+function rowCount(t){ return Math.min(3, Math.ceil(seatCap(t)/3)); }
+function perRow(t){ return Math.ceil(seatCap(t)/rowCount(t)); }
+function rowSeats(t,r){ return Math.min(perRow(t), seatCap(t)-r*perRow(t)); }
 function seatPos(t,i){
-  const n=tierDef(t.tier).seats;
-  const sp2=n<=8?0.95:8/n; return new THREE.Vector3(t.pos.x+(i-(n-1)/2)*sp2, 0, t.pos.z-1.4);
+  const pr=perRow(t), r=Math.floor(i/pr), col=i%pr, rc=rowSeats(t,r);
+  return new THREE.Vector3(t.pos.x+(col-(rc-1)/2)*SP, 0, t.pos.z-r*ROW_D-1.4);
 }
 let workers=[], pads=[], hero, campfire, custT=0, stockMeshes=[], stewMeshes=[], coinFx=[];
 
@@ -191,7 +181,7 @@ function buildStations(){
   staticAsset('Kitchen', -7, 8.8, 0, 0.5, 0.05);
   // 카운터 좌석 (카운터 자체가 주방과 홀을 분리)
   TABLES.forEach(t=>buildTable(t));
-  staticAsset('coins',9,4,0,0.8);
+  staticAsset('coins',8.8,-5.0,0,0.8);
   // 장애물 (영웅 충돌용): 벽/기물
   OBSTACLES.push(
     {x1:-10.6,z1:9.35,x2:11,z2:10.5},      // 북벽
@@ -203,7 +193,7 @@ function buildStations(){
     {x1:1.35,z1:-10.85,x2:1.85,z2:-10.35}, // 토리이 기둥
     {x1:-1.85,z1:-10.85,x2:-1.35,z2:-10.35},
     {x1:3.15,z1:-9.05,x2:4.05,z2:-8.15},   // 메뉴판
-    {x1:8.5,z1:3.5,x2:9.5,z2:4.5}          // 코인
+    {x1:8.3,z1:-5.5,x2:9.3,z2:-4.5}      // 코인
   );
 }
 function buildKitchen(x,z){
@@ -215,31 +205,56 @@ function buildKitchen(x,z){
 }
 function buildTable(t){
   if(t.group){ scene.remove(t.group); }
+  for(const b of t.colBoxes||[]){ const bi=OBSTACLES.indexOf(b); if(bi>=0)OBSTACLES.splice(bi,1); }
+  t.colBoxes=[];
   const tier=tierDef(t.tier);
-  const n=tier.seats, sp=n<=8?0.95:8/n;
+  const n=tier.seats, rows=rowCount(t), pr=perRow(t);
   const g=new THREE.Group(); g.position.copy(t.pos);
-  const rug=new THREE.Mesh(new THREE.BoxGeometry(n*sp+1.8,0.04,3.6),new THREE.MeshStandardMaterial({color:tier.color,roughness:1}));
-  rug.position.y=0.02; rug.receiveShadow=true; g.add(rug);
-  const cw=n*sp+0.7;
-  const ct=cloneAsset('Counter_Straight'); ct.scale.set(cw/4,0.62,0.7); g.add(ct);
-  for(let i=0;i<n;i++){
-    const st=cloneAsset('Stool'); st.scale.setScalar(0.75); st.position.set((i-(n-1)/2)*sp,0,-1.4); g.add(st);
-  }
-  // 이치란식 1인석 칸막이
   const divM=new THREE.MeshStandardMaterial({color:0x6b4426,roughness:.9});
-  for(let i=0;i<n-1;i++){
-    const d=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.8,1.05),divM);
-    d.position.set((i-(n-1)/2+0.5)*sp,1.19+0.4,-0.45); d.castShadow=true; g.add(d);
+  for(let r=0;r<rows;r++){
+    const rc=rowSeats(t,r), rz=-r*ROW_D;
+    const rug=new THREE.Mesh(new THREE.BoxGeometry(rc*SP+1.8,0.04,3.4),new THREE.MeshStandardMaterial({color:tier.color,roughness:1}));
+    rug.position.set(0,0.02,rz-0.35); rug.receiveShadow=true; g.add(rug);
+    const cw=rc*SP+0.7;
+    const ct=cloneAsset('Counter_Straight'); ct.scale.set(cw/4,0.62,0.7); ct.position.set(0,0,rz); g.add(ct);
+    for(let i=0;i<rc;i++){
+      const st=cloneAsset('Stool'); st.scale.setScalar(0.75); st.position.set((i-(rc-1)/2)*SP,0,rz-1.4); g.add(st);
+    }
+    // 이치란식 1인석 칸막이
+    for(let i=0;i<rc-1;i++){
+      const d=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.8,1.05),divM);
+      d.position.set((i-(rc-1)/2+0.5)*SP,1.19+0.4,rz-0.45); d.castShadow=true; g.add(d);
+    }
+    const hl=cloneAsset('Hanging_Lantern'); hl.position.set(0,2.7,rz); g.add(hl);
+    if(t.tier>=2){ const ra=cloneAsset('Ramen'); ra.scale.setScalar(0.6); ra.position.set(0,1.19,rz-0.1); g.add(ra); }
+    t.colBoxes.push({x1:t.pos.x-cw/2-0.15, z1:t.pos.z+rz-0.8, x2:t.pos.x+cw/2+0.15, z2:t.pos.z+rz+0.8});
   }
-  const hl=cloneAsset('Hanging_Lantern'); hl.position.set(0,2.7,0); g.add(hl);
-  if(t.tier>=2){ const r=cloneAsset('Ramen'); r.scale.setScalar(0.6); r.position.set(0,1.19,-0.1); g.add(r); }
-  if(t.colBox){ const bi=OBSTACLES.indexOf(t.colBox); if(bi>=0)OBSTACLES.splice(bi,1); }
-  t.colBox={x1:t.pos.x-cw/2-0.15, z1:t.pos.z-0.8, x2:t.pos.x+cw/2+0.15, z2:t.pos.z+0.8};
-  OBSTACLES.push(t.colBox);
+  OBSTACLES.push(...t.colBoxes);
   scene.add(g); t.group=g;
   while(t.custs.length<n) t.custs.push(null);
   t.custs=t.custs.slice(0,n);
   t.custs.forEach((c,i)=>{ if(c){ const sp2=seatPos(t,i); c.rig.obj.position.set(sp2.x,0,sp2.z); } });
+  buildRoads();
+}
+// 도로 (입구/세로/열별 통로)
+let roadGroup=null;
+function buildRoads(){
+  if(roadGroup){ scene.remove(roadGroup); }
+  roadGroup=new THREE.Group(); scene.add(roadGroup);
+  const roadMat=new THREE.MeshStandardMaterial({color:0xbcab8c,roughness:1});
+  const edgeMat=new THREE.MeshStandardMaterial({color:0x8f7d61,roughness:1});
+  const mkRoad=(x,z,w,l)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.06,l),roadMat); m.position.set(x,0.16,z); m.receiveShadow=true; roadGroup.add(m);
+    const horiz=w>l;
+    for(const s of [-1,1]){
+      const e=new THREE.Mesh(new THREE.BoxGeometry(horiz?w:0.12,0.07,horiz?0.12:l),edgeMat);
+      e.position.set(horiz?x:x+s*(w/2-0.06), 0.17, horiz?z+s*(l/2-0.06):z); roadGroup.add(e);
+    }
+  };
+  mkRoad(0,-8,2,5.5);         // 입구 도로
+  mkRoad(2,-0.55,1.6,10.1);   // 세로 도로 (줄 -> 카운터 홀)
+  const mr=Math.max(...TABLES.map(rowCount));
+  for(let r=0;r<mr;r++) mkRoad(0.75, 4.2-r*ROW_D, 18.5, 1.6); // 열별 통로
 }
 // 발판
 function padIcon(k){
@@ -412,6 +427,7 @@ function refreshStew(){
     m.position.set(FIRE.pos.x+1.2+i*0.7, 0, FIRE.pos.z-0.7); scene.add(m); stewMeshes.push(m);
   }
 }
+const _sv2=new THREE.Vector3();
 function tryHeroPickupDrop(){
   const hp=hero.rig.obj.position;
   if(!hero.carry || (hero.carry.n<CFG.carryMax)){
@@ -432,7 +448,9 @@ function tryHeroPickupDrop(){
     updateHeroCarry(); pop(FIRE.pos,0xff8a30); sfx.drop();
   } else if(hero.carry && hero.carry.kind==='stew' && hero.dropCd<=0){
     let best=null, bd=2.2;
-    for(const t of TABLES){ if(t.stew<seatCap(t)){ const d=dist(hp,t.pos); if(d<bd){ bd=d; best=t; } } }
+    for(const t of TABLES){ if(t.stew<seatCap(t)){
+      for(let r=0;r<rowCount(t);r++){ const d=dist(hp,_sv2.set(t.pos.x,0,t.pos.z-r*ROW_D+1.0)); if(d<bd){ bd=d; best=t; } }
+    } }
     if(best){
       const n=Math.min(hero.carry.n,seatCap(best)-best.stew); best.stew+=n; hero.carry.n-=n;
       if(hero.carry.n<=0)hero.carry=null;
@@ -527,8 +545,8 @@ function updateCustomers(dt){
     for(let i=0;i<t.custs.length;i++){
       if(!t.custs[i] && queue.length>0){
         const c=queue.shift(); t.custs[i]=c; c.table=t; c.seatIdx=i; c.state='toSeat';
-        const spp=seatPos(t,i); c.sx=spp.x;
-        c.wp=[new THREE.Vector3(2,0,3.5), new THREE.Vector3(spp.x,0,3.5)];
+        const spp=seatPos(t,i); c.sx=spp.x; c.aisleZ=spp.z-0.9;
+        c.wp=[new THREE.Vector3(2,0,c.aisleZ), new THREE.Vector3(spp.x,0,c.aisleZ)];
       }
     }
   }
@@ -565,7 +583,7 @@ function updateCustomers(dt){
         if(c.table){ c.table.custs[c.seatIdx]=null; c.table=null; c.seatIdx=null; }  // 일어나는 순간 좌석 해제 → 다음 손님 즉시 배정
         c.state='leave'; playAnim(c.rig,'Cheer');
         c.cheerT=0;
-        c.wp=[new THREE.Vector3(c.sx!=null?c.sx:0,0,3.5), new THREE.Vector3(2,0,3.5), new THREE.Vector3(2,0,-6), new THREE.Vector3(0,0,-8)];
+        c.wp=[new THREE.Vector3(c.sx!=null?c.sx:0,0,c.aisleZ!=null?c.aisleZ:4.2), new THREE.Vector3(2,0,c.aisleZ!=null?c.aisleZ:4.2), new THREE.Vector3(2,0,-6), new THREE.Vector3(0,0,-8)];
       }
     }
     else if(c.state==='leave'){
