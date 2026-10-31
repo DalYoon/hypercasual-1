@@ -12,7 +12,7 @@ const CFG = {
 };
 const PAD_DEFS=[
   { id:'table',  label:'식탁 추가',  pos:[4.5,-3.0],  costs:[120,300,450,700,1000,1400,1900], icon:'table' },
-  { id:'worker', label:'일꾼 고용',  pos:[0.0,-4.5],  costs:[50,220,380,600,850],              icon:'worker' },
+  { id:'worker', label:'일꾼 고용',  pos:[-3.0,-4.0],  costs:[50,220,380,600,850],              icon:'worker' },
   { id:'hunt',   label:'사냥 가속',  pos:[-5.5,-1.0], costs:[80,200,400,700],                  icon:'steak' },
   { id:'fire',   label:'모닥불 강화', pos:[2.0,5.2],  costs:[100,250,500],                     icon:'pot' },
   { id:'bag',    label:'큰 가방',   pos:[-3.0,-8.0],  costs:[150],                             icon:'bag' },
