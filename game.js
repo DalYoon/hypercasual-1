@@ -459,6 +459,7 @@ function updateCustomers(dt){
         S.coins+=gain; S.served++; save(); pop(c.table.pos,0xffd34d);
         const ft=textSprite(`+${gain} 🪙`,{size:46,fg:'#ffd34d'}); ft.position.copy(c.table.pos).add(new THREE.Vector3(0,2.2,0)); scene.add(ft);
         coinFx.push({m:ft,t:0,isText:true});
+        if(c.table){ c.table.cust=null; c.table=null; }  // 일어나는 순간 테이블 해제 → 다음 손님 즉시 배정
         c.state='leave'; playAnim(c.rig,'Cheer');
         c.cheerT=0;
       }
