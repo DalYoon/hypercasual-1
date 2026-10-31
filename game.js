@@ -130,8 +130,16 @@ function buildWorld(){
   for(let ix=0;ix<5;ix++) for(let iz=0;iz<4;iz++)
     staticAsset('Wood_Floor', -8+ix*4, -6+iz*4, 0, 1, -0.06);
   // 길 (밝은색 도로)
-  const roadMat=new THREE.MeshStandardMaterial({color:0xcfc0a0,roughness:1});
-  const mkRoad=(x,z,w,l)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.06,l),roadMat); m.position.set(x,0.16,z); m.receiveShadow=true; scene.add(m); };
+  const roadMat=new THREE.MeshStandardMaterial({color:0xbcab8c,roughness:1});
+  const edgeMat=new THREE.MeshStandardMaterial({color:0x8f7d61,roughness:1});
+  const mkRoad=(x,z,w,l)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.06,l),roadMat); m.position.set(x,0.16,z); m.receiveShadow=true; scene.add(m);
+    const horiz=w>l;
+    for(const s of [-1,1]){
+      const e=new THREE.Mesh(new THREE.BoxGeometry(horiz?w:0.12,0.07,horiz?0.12:l),edgeMat);
+      e.position.set(horiz?x:x+s*(w/2-0.06), 0.17, horiz?z+s*(l/2-0.06):z); scene.add(e);
+    }
+  };
   mkRoad(0,-8,2,5.5);        // 입구 도로
   mkRoad(2,-1,1.6,9);        // 세로 도로 (줄 -> 카운터 앞)
   mkRoad(0.75,4.3,18.5,3.2); // 카운터 앞 프로머나드
