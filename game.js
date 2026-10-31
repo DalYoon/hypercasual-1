@@ -258,12 +258,16 @@ function buildCampfire(x,z){
 // ============================== 게임 오브젝트 ==============================
 const HUNT={pos:new THREE.Vector3(-8,0,2), stock:[], iv:CFG.huntInterval, t:0};
 const FIRE={pos:new THREE.Vector3(-2,0,2), raw:0, stew:0, cooking:0, ct:CFG.cookTime};
-const TABLE_TIERS=[
+const TABLE_TIERS0=[
   {seats:2, scale:0.85, rug:2.4, color:0xd8b08c},
   {seats:4, scale:1.05, rug:3.0, color:0xd09a70},
   {seats:6, scale:1.25, rug:3.5, color:0xc47a58},
   {seats:8, scale:1.45, rug:4.0, color:0xb45c48},
 ];
+function tierDef(lv){
+  if(lv<TABLE_TIERS0.length) return TABLE_TIERS0[lv];
+  return {seats:8+(lv-3), scale:Math.min(1.6,1.45+0.05*(lv-3)), rug:Math.min(4.4,4.0+0.1*(lv-3)), color:0xb45c48};
+}
 const TABLES=[ {pos:new THREE.Vector3(6.5,0,-2), tier:0, custs:[], stew:0, group:null},
                {pos:new THREE.Vector3(6.5,0,7),  tier:0, custs:[], stew:0, group:null} ];
 function seatCap(t){ return tierDef(t.tier).seats; }
