@@ -275,6 +275,10 @@ function toast(msg){ const el=document.getElementById('toast'); el.textContent=m
 
 // ============================== 주인공 ==============================
 const keys={};
+// 모바일 텍스트 선택/콜아웃 방지
+addEventListener('contextmenu',e=>e.preventDefault());
+addEventListener('selectstart',e=>e.preventDefault());
+document.addEventListener('gesturestart',e=>e.preventDefault());
 addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 const joy=document.getElementById('joy'), knob=document.getElementById('joyknob');
