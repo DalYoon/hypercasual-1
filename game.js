@@ -21,10 +21,10 @@ const items=[],obstacles=[],seats=[],pads=[],actors=[],fx=[];
 const anchors={booth:.085,counter:.070,shelf:.065,pot:.065,noren:0,torii:.035,sign:.060,truck:.070,table:0,fire:0,bag:0};
 function prop(kind,x,y,w,collision){let q={kind,x,y,w};items.push(q);if(collision)obstacles.push([x,y-8,...collision]);return q;}
 // Approved painted 1x4 carrel (single shared walls). Measured in the 1444x951 cutout: stool cushion centers, partition cut x.
-const CK=.30,CAR_H=951,CAR_STOOL=[[163,472],[455,581],[751,694],[1052,805]].map(([x,y])=>[x+17,y+135]),CAR_CUT=[0,163+145,455+145,751+145,1444];
+const CK=0.2511,CAR_H=1036,CAR_STOOL=[[211, 471], [547, 593], [884, 744], [1267, 882]],CAR_CUT=[0, 326, 662, 999, 1669];
 const carPitch=[(CAR_STOOL[3][0]-CAR_STOOL[0][0])/3*CK,(CAR_STOOL[3][1]-CAR_STOOL[0][1])/3*CK],carDepth=[228*CK,-123*CK];
 function carrelSlice(q){const im=assets.carrel,x0=CAR_CUT[q.n],x1=CAR_CUT[q.n+1],e0=q.n?1:0,e1=q.n<3?1:0;ctx.drawImage(im,x0-e0,0,x1-x0+e0+e1,CAR_H,q.ox+(x0-e0)*CK,q.oy,(x1-x0+e0+e1)*CK,CAR_H*CK);
-if(q.seat.food){const r=assets['ramen'+q.n%3],w=46,h=w*r.height/r.width;ctx.drawImage(r,q.sx+38*CK-w/2,q.sy-331*CK-h*.5+4,w,h);}}
+if(q.seat.food){const r=assets['ramen'+q.n%3],w=42,h=w*r.height/r.width;ctx.drawImage(r,q.sx+38*CK-w/2+4,q.sy-331*CK-h*.5+14,w,h);}}
 for(const a of [.09,.45,.81]){const [sx0,sy0]=P(a,.40),ox=sx0-CAR_STOOL[0][0]*CK,oy=sy0-CAR_STOOL[0][1]*CK;
 for(let n=0;n<4;n++){const sx=ox+CAR_STOOL[n][0]*CK,sy=oy+CAR_STOOL[n][1]*CK,cx=sx+22,cy=sy-36;
 const seat={x:cx,y:cy,guest:null,food:0,spot:[sx-19,sy+11],a,b:.42+n*.125};
@@ -33,7 +33,7 @@ obstacles.push([cx,cy,48,22],[sx,sy,16,8]);if(n<3)obstacles.push([cx+carPitch[0]
 function kit(kind,a,b,w,hx,hy){const [x,y]=P(a,b);return prop(kind,x,y+6,w,[hx,hy]);}
 kit('shelf',.14,.11,74,30,14);const c1=kit('counter',.32,.11,140,64,21);kit('pot',.5,.12,62,24,11);const c2=kit('counter',.68,.11,140,64,21);kit('pot',.84,.12,62,24,11);kit('shelf',.94,.12,74,30,14);kit('counter',.42,.31,112,50,18);kit('counter',.74,.31,112,50,18);
 for(const c of [c1,c2]){const n=prop('noren',c.x,c.y-44,140);n.depthParent=c;}
-prop('torii',183.6,691.2,255);prop('sign',356.4,709.2,70);prop('truck',1224,709.2,270);
+prop('torii',183.6,694,262);prop('sign',356.4,709.2,70);prop('truck',1224,709.2,270);
 const definitions=[{id:'table',name:'카운터 강화',a:.1,b:.94,base:[120,300,600],mult:2.2,kind:'table'}, {id:'fire',name:'주방 강화',a:.3,b:.94,base:[100,250,500],mult:1.7,kind:'fire'}, {id:'bag',name:'큰 쟁반',a:.5,b:.94,base:[150],mult:1.8,kind:'bag'}, {id:'hunter',name:'운반 알바',a:.7,b:.94,base:[50,220,380,600,850],mult:1.6,kind:'bag',badge:'📦'}, {id:'server',name:'서빙 알바',a:.9,b:.94,base:[50,220,380,600,850],mult:1.6,kind:'table',badge:'🍜'}, {id:'hunt',name:'재료 입고',a:.96,b:.62,base:[80,200,400,700],mult:1.7,kind:'bag',badge:'🥬'}];
 function cost(d){const lv=S.lv[d.id]||0;return lv<d.base.length?d.base[lv]:Math.round(d.base.at(-1)*Math.pow(d.mult,lv-d.base.length+1));}
 for(const d of definitions){const [x,y]=P(d.a,d.b);pads.push({...d,x,y,paid:S.padPaid?.[d.id]||0});}
