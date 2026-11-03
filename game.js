@@ -14,13 +14,22 @@ const before=Date.now()-S.ts;let offline=before>180000?Math.floor(Math.min(befor
 const BW=1418,BH=945,CL=[102.6,388.8],CT=[631.8,113.4],CB=[702,864],CR=[1333.8,453.6];
 function P(a,b){return [0,1].map(i=>(1-a)*(1-b)*CL[i]+a*(1-b)*CT[i]+(1-a)*b*CB[i]+a*b*CR[i]);}
 const assets={}, charNames=['taijo','mio','kenji','kato','jiro','yuuki','emma','goro','saki','sayaka','shota','rei','hana'];
-const filenames={bg:'bg-big',booth:'b06-booth-ALT-new-take',pot:'b09-broth-pot',counter:'b10-prep-counter',shelf:'b12-bowl-shelf',truck:'b14-truck',noren:'b15-noren',sign:'b19-sign-aframe',torii:'b20-torii',coin:'b27-coin',table:'pad-table-counter-expansion',fire:'pad-fire-kitchen-boost',bag:'pad-bag-big-tray'};
+const filenames={bg:'bg-big',carrel:'carrel4',ramen0:'ramen-shoyu',ramen1:'ramen-miso',ramen2:'ramen-tonkotsu',pot:'b09-broth-pot',counter:'b10-prep-counter',shelf:'b12-bowl-shelf',truck:'b14-truck',noren:'b15-noren',sign:'b19-sign-aframe',torii:'b20-torii',coin:'b27-coin',table:'pad-table-counter-expansion',fire:'pad-fire-kitchen-boost',bag:'pad-bag-big-tray'};
 const items=[],obstacles=[],seats=[],pads=[],actors=[],fx=[];
 // Per-asset visible ground-footprint offsets, measured in each cropped sprite.
 // Depth is separate from draw-bottom: no image-top/image-height ordering.
 const anchors={booth:.085,counter:.070,shelf:.065,pot:.065,noren:0,torii:.035,sign:.060,truck:.070,table:0,fire:0,bag:0};
 function prop(kind,x,y,w,collision){let q={kind,x,y,w};items.push(q);if(collision)obstacles.push([x,y-8,...collision]);return q;}
-for(const a of [.12,.48,.84])for(let n=0;n<4;n++){const b=.42+n*.125,[x,y]=P(a,b);prop('booth',x,y+20,135);obstacles.push([x,y-8,44,24],[x-26,y+8,22,13]);if(n<3){const m=P(a,b+.0625);obstacles.push([m[0],m[1]-8,44,24]);}seats.push({x,y,guest:null,food:0,spot:[x-25,y+38],a,b});}
+// Approved painted 1x4 carrel (single shared walls). Measured in the 1444x951 cutout: stool cushion centers, partition cut x.
+const CK=.30,CAR_H=951,CAR_STOOL=[[163,472],[455,581],[751,694],[1052,805]].map(([x,y])=>[x+17,y+135]),CAR_CUT=[0,163+145,455+145,751+145,1444];
+const carPitch=[(CAR_STOOL[3][0]-CAR_STOOL[0][0])/3*CK,(CAR_STOOL[3][1]-CAR_STOOL[0][1])/3*CK],carDepth=[228*CK,-123*CK];
+function carrelSlice(q){const im=assets.carrel,x0=CAR_CUT[q.n],x1=CAR_CUT[q.n+1],e0=q.n?1:0,e1=q.n<3?1:0;ctx.drawImage(im,x0-e0,0,x1-x0+e0+e1,CAR_H,q.ox+(x0-e0)*CK,q.oy,(x1-x0+e0+e1)*CK,CAR_H*CK);
+if(q.seat.food){const r=assets['ramen'+q.n%3],w=46,h=w*r.height/r.width;ctx.drawImage(r,q.sx+50*CK-w/2+2,q.sy-176*CK-h*.62,w,h);}}
+for(const a of [.09,.45,.81]){const [sx0,sy0]=P(a,.40),ox=sx0-CAR_STOOL[0][0]*CK,oy=sy0-CAR_STOOL[0][1]*CK;
+for(let n=0;n<4;n++){const sx=ox+CAR_STOOL[n][0]*CK,sy=oy+CAR_STOOL[n][1]*CK,cx=sx+22,cy=sy-36;
+const seat={x:cx,y:cy,guest:null,food:0,spot:[sx-19,sy+11],a,b:.42+n*.125};
+items.push({kind:'carrel',x:sx,y:sy,w:0,zfix:sy-10,fn:carrelSlice,n,ox,oy,sx,sy,seat});
+obstacles.push([cx,cy,48,22],[sx,sy,16,8]);if(n<3)obstacles.push([cx+carPitch[0]/2,cy+carPitch[1]/2,48,22]);seats.push(seat);}}
 function kit(kind,a,b,w,hx,hy){const [x,y]=P(a,b);return prop(kind,x,y+6,w,[hx,hy]);}
 kit('shelf',.14,.11,74,30,14);const c1=kit('counter',.32,.11,140,64,21);kit('pot',.5,.12,62,24,11);const c2=kit('counter',.68,.11,140,64,21);kit('pot',.84,.12,62,24,11);kit('shelf',.94,.12,74,30,14);kit('counter',.42,.31,112,50,18);kit('counter',.74,.31,112,50,18);
 for(const c of [c1,c2]){const n=prop('noren',c.x,c.y-44,140);n.depthParent=c;}
@@ -88,7 +97,7 @@ for(const p of pads){const near=distance(hero,p.stand)<24&&!hero.moving;if(near&
 for(let i=fx.length-1;i>=0;i--){fx[i].t+=dt;if(fx[i].t>1.3)fx.splice(i,1);}
 if(saveT>3){saveT=0;save();}document.querySelector('#coins').textContent=Math.floor(S.coins).toLocaleString();document.querySelector('#served').textContent=S.served.toLocaleString();}
 function drawImage(kind,x,y,w,alpha=1){const im=assets[kind],h=w*im.height/im.width;ctx.globalAlpha=alpha;ctx.drawImage(im,x-w/2,y-h,w,h);ctx.globalAlpha=1;}
-function depth(p){if(p.depthParent)return depth(p.depthParent)+.1;const im=assets[p.kind];return p.y-p.w*im.height/im.width*(anchors[p.kind]||0);}
+function depth(p){if(p.zfix!==undefined)return p.zfix;if(p.depthParent)return depth(p.depthParent)+.1;const im=assets[p.kind];return p.y-p.w*im.height/im.width*(anchors[p.kind]||0);}
 function label(text,x,y,color='#fff4dc',size=14){ctx.font=`700 ${size}px -apple-system,sans-serif`;const w=ctx.measureText(text).width+14;ctx.fillStyle='#332216db';ctx.beginPath();ctx.roundRect(x-w/2,y-18,w,25,12);ctx.fill();ctx.fillStyle=color;ctx.textAlign='center';ctx.fillText(text,x,y);}
 function drawActor(a){const im=assets[a.char],count=a.char==='mio'?8:4,active=a.moving||(a.role==='chef'&&raw>0),frame=active?Math.floor(time*(a.role==='chef'?5:9))%count:0;
 const size=a.char==='shota'?104:126;ctx.save();ctx.translate(a.x,a.y);if(a.role==='hero'){ctx.strokeStyle='#ffe18c';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,0,22,10,0,0,Math.PI*2);ctx.stroke();}
@@ -103,7 +112,7 @@ function render(){ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ct
 scale=overview?Math.min(W/BW,H/BH):Math.min(1.2,Math.max(.88,W/1250));const targetX=overview?(W-BW*scale)/2:Math.min(0,Math.max(W-BW*scale,W*.5-hero.x*scale)),targetY=overview?(H-BH*scale)/2:Math.min(0,Math.max(H-BH*scale,H*.56-hero.y*scale));camX=targetX;camY=targetY;
 ctx.translate(camX,camY);ctx.scale(scale,scale);ctx.drawImage(assets.bg,0,0,BW,BH);
 for(const p of pads){const near=distance(hero,p.stand)<24;ctx.fillStyle=near?'#ffe3a04d':'#fff1b51a';ctx.strokeStyle=near?'#ffe5a0':'#f6c87988';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y-7,30,15,0,0,Math.PI*2);ctx.fill();ctx.stroke();drawImage(p.kind,p.x,p.y,52);if(p.badge)label(p.badge,p.x,p.y-38,'#fff',12);label(Math.ceil(cost(p)-p.paid).toLocaleString(),p.x,p.y+16,'#ffdf8b',12);if(p.paid){ctx.fillStyle='#ffe19d';ctx.fillRect(p.x-24,p.y+26,48*p.paid/cost(p),3);}}
-const sorted=[...items.map(p=>({z:depth(p),p})),...actors.map(a=>({z:a.y,a}))].sort((a,b)=>a.z-b.z);for(const d of sorted){if(d.p)drawImage(d.p.kind,d.p.x,d.p.y,d.p.w);else drawActor(d.a);}
+const sorted=[...items.map(p=>({z:depth(p),p})),...actors.map(a=>({z:a.y,a}))].sort((a,b)=>a.z-b.z);for(const d of sorted){if(d.p){if(d.p.fn)d.p.fn(d.p);else drawImage(d.p.kind,d.p.x,d.p.y,d.p.w);}else drawActor(d.a);}
 for(const b of [.12]){const [x,y]=P(.5,b);for(let i=0;i<3;i++){const t=(time*.4+i*.33)%1;ctx.globalAlpha=(1-t)*.45;ctx.fillStyle='#fff3da';ctx.beginPath();ctx.ellipse(x+Math.sin(t*5+i)*6,y-65-t*34,4+t*8,7+t*7,0,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;}
 label('📦 '+stock,supply[0],supply[1]-24,'#ffe7a8',12);label('🍜 '+ready,pass[0],pass[1]-32,'#ffe7a8',12);
 for(const f of fx){ctx.globalAlpha=Math.max(0,1-f.t/1.3);ctx.font='bold 20px sans-serif';ctx.textAlign='center';ctx.fillStyle='#ffe294';ctx.fillText(f.text,f.x,f.y-f.t*35);ctx.globalAlpha=1;}
@@ -120,5 +129,5 @@ document.querySelector('#view').onclick=()=>{overview=!overview;document.querySe
 for(const type of ['contextmenu','selectstart','gesturestart','gesturechange','gestureend','dblclick'])document.addEventListener(type,e=>e.preventDefault());document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
 let last=0;function loop(now){const dt=Math.min(.05,(now-last)/1000)||.016;last=now;update(dt);if(hero.manualMove)hero.moving=true;render();requestAnimationFrame(loop);}
 const urls=Object.entries(filenames).map(([id,f])=>[id,'assets/shop/'+f+'.png']).concat(charNames.map((id,i)=>[id,'assets/characters/alpha/char-'+String(i+1).padStart(2,'0')+'-'+id+'.png']));
-let loaded=0;Promise.all(urls.map(([id,url])=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{assets[id]=im;document.querySelector('progress').value=++loaded/urls.length;resolve();};im.onerror=()=>reject(new Error(url));im.src=url;}))).then(()=>{document.querySelector('#loading').remove();save();toast(offline?'오프라인 수익 +'+offline:'초록 옷이 주인공이에요 · 바닥을 눌러 이동');window.__g={S,hero,actors,seats,pads,items,obstacles,free,findPath,point,grid,largest,entry,supply,rawDrop,pass,get stock(){return stock},get raw(){return raw},get ready(){return ready},get overview(){return overview},get camera(){return {x:camX,y:camY,scale}},version:44};requestAnimationFrame(loop);}).catch(e=>{document.querySelector('#loading p').textContent='그림을 불러오지 못했어요. 새로고침해 주세요.';console.error(e);});
+let loaded=0;Promise.all(urls.map(([id,url])=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{assets[id]=im;document.querySelector('progress').value=++loaded/urls.length;resolve();};im.onerror=()=>reject(new Error(url));im.src=url;}))).then(()=>{document.querySelector('#loading').remove();save();toast(offline?'오프라인 수익 +'+offline:'초록 옷이 주인공이에요 · 바닥을 눌러 이동');window.__g={S,hero,actors,seats,pads,items,obstacles,free,findPath,point,grid,largest,entry,supply,rawDrop,pass,get stock(){return stock},get raw(){return raw},get ready(){return ready},get overview(){return overview},get camera(){return {x:camX,y:camY,scale}},version:47};requestAnimationFrame(loop);}).catch(e=>{document.querySelector('#loading p').textContent='그림을 불러오지 못했어요. 새로고침해 주세요.';console.error(e);});
 addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});
