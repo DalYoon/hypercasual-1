@@ -52,7 +52,7 @@ const entry=snap(P(.04,.37)),supply=snap([1180,650]),rawDrop=snap(P(.89,.23)),pa
 for(const s of seats)s.spot=snap(s.spot);for(const p of pads)p.stand=snap([p.x,p.y]);
 let actorSeq=0;
 function actor(char,pos,role){const o={id:++actorSeq,char,x:pos[0],y:pos[1],role,path:[],moving:false,flip:false,t:0,carry:null,phase:'idle',target:null};actors.push(o);return o;}
-const hero=actor('mio',snap(P(.28,.38)),'hero');hero.carryN=0;
+const hero=actor('mio',snap([500,425]),'hero');hero.carryN=0;
 const chef=actor('taijo',chefPos,'chef');
 function hire(role){return actor(role==='hunter'?'kenji':'mio',role==='hunter'?rawDrop:pass,role);}
 // Starter staff keep the arcade-idle loop running. Saved hires are additive.
@@ -119,5 +119,5 @@ document.querySelector('#view').onclick=()=>{overview=!overview;document.querySe
 for(const type of ['contextmenu','selectstart','gesturestart','gesturechange','gestureend','dblclick'])document.addEventListener(type,e=>e.preventDefault());document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
 let last=0;function loop(now){const dt=Math.min(.05,(now-last)/1000)||.016;last=now;update(dt);if(hero.manualMove)hero.moving=true;render();requestAnimationFrame(loop);}
 const urls=Object.entries(filenames).map(([id,f])=>[id,'assets/shop/'+f+'.png']).concat(charNames.map((id,i)=>[id,'assets/characters/alpha/char-'+String(i+1).padStart(2,'0')+'-'+id+'.png']));
-let loaded=0;Promise.all(urls.map(([id,url])=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{assets[id]=im;document.querySelector('progress').value=++loaded/urls.length;resolve();};im.onerror=()=>reject(new Error(url));im.src=url;}))).then(()=>{document.querySelector('#loading').remove();save();toast(offline?'오프라인 수익 +'+offline:'초록 옷이 주인공이에요 · 바닥을 눌러 이동');window.__g={S,hero,actors,seats,pads,items,obstacles,free,findPath,point,grid,largest,entry,supply,rawDrop,pass,get stock(){return stock},get raw(){return raw},get ready(){return ready},get overview(){return overview},get camera(){return {x:camX,y:camY,scale}},version:40};requestAnimationFrame(loop);}).catch(e=>{document.querySelector('#loading p').textContent='그림을 불러오지 못했어요. 새로고침해 주세요.';console.error(e);});
+let loaded=0;Promise.all(urls.map(([id,url])=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{assets[id]=im;document.querySelector('progress').value=++loaded/urls.length;resolve();};im.onerror=()=>reject(new Error(url));im.src=url;}))).then(()=>{document.querySelector('#loading').remove();save();toast(offline?'오프라인 수익 +'+offline:'초록 옷이 주인공이에요 · 바닥을 눌러 이동');window.__g={S,hero,actors,seats,pads,items,obstacles,free,findPath,point,grid,largest,entry,supply,rawDrop,pass,get stock(){return stock},get raw(){return raw},get ready(){return ready},get overview(){return overview},get camera(){return {x:camX,y:camY,scale}},version:41};requestAnimationFrame(loop);}).catch(e=>{document.querySelector('#loading p').textContent='그림을 불러오지 못했어요. 새로고침해 주세요.';console.error(e);});
 addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});
