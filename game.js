@@ -48,7 +48,7 @@ function push(k,f){heap.push([k,f]);let i=heap.length-1;while(i){let p=(i-1)>>1;
 function pop(){const top=heap[0],last=heap.pop();if(heap.length){heap[0]=last;let i=0;while(true){let l=2*i+1,r=l+1,j=i;if(l<heap.length&&heap[l][1]<heap[j][1])j=l;if(r<heap.length&&heap[r][1]<heap[j][1])j=r;if(j===i)break;[heap[i],heap[j]]=[heap[j],heap[i]];i=j;}}return top[0];}
 push(start,h(start));while(heap.length){const k=pop();if(done.has(k))continue;done.add(k);if(k===end)break;const x=k%GW,y=Math.floor(k/GW);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const nx=x+dx,ny=y+dy,n=ny*GW+nx;if(nx<0||nx>=GW||ny<0||ny>=GH||!grid[n]||done.has(n))continue;if(dx&&dy&&(!grid[y*GW+nx]||!grid[ny*GW+x]))continue;const mid=[(x+nx)*CELL/2+CELL/2,(y+ny)*CELL/2+CELL/2];if(!free(...mid))continue;const ng=g.get(k)+Math.hypot(dx,dy);if(ng<(g.get(n)??Infinity)){g.set(n,ng);prev.set(n,k);push(n,ng+h(n));}}}
 if(end!==start&&!prev.has(end))return[];let k=end,path=[point(k)];while(prev.has(k)){k=prev.get(k);path.push(point(k));}return path.reverse();}
-const entry=snap(P(.04,.37)),supply=snap(P(.97,.82)),rawDrop=snap(P(.89,.23)),pass=snap(P(.62,.26)),chefPos=snap(P(.81,.22));
+const entry=snap(P(.04,.37)),supply=snap([1180,650]),rawDrop=snap(P(.89,.23)),pass=snap(P(.62,.26)),chefPos=snap(P(.81,.22));
 for(const s of seats)s.spot=snap(s.spot);for(const p of pads)p.stand=snap([p.x,p.y]);
 let actorSeq=0;
 function actor(char,pos,role){const o={id:++actorSeq,char,x:pos[0],y:pos[1],role,path:[],moving:false,flip:false,t:0,carry:null,phase:'idle',target:null};actors.push(o);return o;}
